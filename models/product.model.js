@@ -9,13 +9,19 @@ const reviewSchema = new mongoose.Schema(
     },
     rating: {
       type: Number,
-      required: true,
-      min: 1,
-      max: 5,
+      required: [true, "Please give Rating"],
+      min: [1, "Rating must be at least 1"],
+      max: [5, "Rating must not be more than 5"],
     },
     comment: {
       type: String,
       trim: true,
+      maxlength: [200, "Comment must not be more than 200 characters"],
+    },
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
     },
   },
   { timestamps: true }
@@ -60,8 +66,6 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Category = mongoose.model("Category", categorySchema);
-
 // Main Product Schema
 const productSchema = new mongoose.Schema(
   {
@@ -95,6 +99,10 @@ const productSchema = new mongoose.Schema(
       type: [String], // Array of image URLs
       required: [true, "Product images is required"],
     },
+    imagesPublicIds: {
+      type: [String],
+      required: [true, "Product images public id is required"],
+    },
     numReviews: {
       type: Number,
       default: 0,
@@ -118,7 +126,12 @@ const productSchema = new mongoose.Schema(
         required: [true, "Product categories is required"],
       },
     ],
-    reviews: [reviewSchema], // Array of user reviews
+    reviews: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Review", // Store only review references here
+      },
+    ],
     isVariable: {
       type: Boolean,
       default: false, // Indicates if the product has variants
@@ -131,6 +144,8 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const Category = mongoose.model("Category", categorySchema);
 const Product = mongoose.model("Product", productSchema);
+const Review = mongoose.model("Review", reviewSchema);
 
-export { Product, Category };
+export { Product, Category, Review };

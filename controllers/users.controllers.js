@@ -42,8 +42,8 @@ async function getSingleUser(req, res, next) {
 
 async function updateUser(req, res, next) {
   try {
-    const userId = req.user._id;
-    // const { userId } = req.params;
+    // const userId = req.user._id;
+    const { userId } = req.params;
     const { name, password, address } = req.body;
 
     // Update fields only if they are provided
@@ -86,7 +86,9 @@ async function updateUser(req, res, next) {
 }
 async function deleteUser(req, res, next) {
   try {
-    const userId = req.user._id;
+    // const userId = req.user._id;
+    const { userId } = req.params;
+
     if (!userId) {
       return res.status(400).json({
         message: "User id is required",
@@ -118,4 +120,126 @@ async function logOut(req, res, next) {
     next(error);
   }
 }
-export { getAllUsers, updateUser, deleteUser, logOut, getSingleUser };
+
+async function addToCartItems(req, res, next) {
+  try {
+    const { productId } = req.params;
+    if (!productId) {
+      return res.status(400).json({
+        message: "Product id not found",
+      });
+    }
+
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        message: "User is not logged in",
+      });
+    }
+
+    user.cart?.push(productId);
+
+    await user.save();
+
+    return res.json({
+      message: "Item added to cart",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function removeFromCart(req, res, next) {
+  try {
+    const { productId } = req.params;
+    if (!productId) {
+      return res.status(400).json({
+        message: "Product id not found",
+      });
+    }
+
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        message: "User is not logged in",
+      });
+    }
+
+    user.cart = user.cart?.filter((id) => id.toString() !== productId);
+
+    await user.save();
+
+    return res.json({
+      message: "Item remove from cart",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+async function addIItemToWishlist(req, res, next) {
+  try {
+    const { productId } = req.params;
+    if (!productId) {
+      return res.status(400).json({
+        message: "Product id not found",
+      });
+    }
+
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        message: "User is not logged in",
+      });
+    }
+
+    user.cart?.push(productId);
+
+    await user.save();
+
+    return res.json({
+      message: "Item added to cart",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function removeFromWhislist(req, res, next) {
+  try {
+    const { productId } = req.params;
+    if (!productId) {
+      return res.status(400).json({
+        message: "Product id not found",
+      });
+    }
+
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        message: "User is not logged in",
+      });
+    }
+
+    user.cart = user.cart?.filter((id) => id.toString() !== productId);
+
+    await user.save();
+
+    return res.json({
+      message: "Item remove from cart",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export {
+  getAllUsers,
+  updateUser,
+  deleteUser,
+  logOut,
+  getSingleUser,
+  addToCartItems,
+  removeFromCart,
+  addIItemToWishlist,
+  removeFromWhislist,
+};
