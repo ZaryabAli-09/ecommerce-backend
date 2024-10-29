@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
+
 // Review Schema
 const reviewSchema = new mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Assuming you have a User model
+      ref: "User", // Reference to the User model
       required: true,
     },
     rating: {
@@ -21,10 +22,10 @@ const reviewSchema = new mongoose.Schema(
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
-      required: true,
+      required: true, // Ensures every review is linked to a product
     },
   },
-  { timestamps: true }
+  { timestamps: true } // Automatically handles createdAt and updatedAt timestamps
 );
 
 // Variant Schema for Variable Products
@@ -72,7 +73,7 @@ const productSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, "Product name is required"],
-      trim: true,
+      trim: true, // Trims unnecessary whitespace
       unique: true,
       lowercase: true,
     },
@@ -137,9 +138,6 @@ const productSchema = new mongoose.Schema(
       default: false, // Indicates if the product has variants
     },
     variants: [variantSchema], // Array of product variants for variable products
-    // brand:{
-
-    // }
   },
   { timestamps: true }
 );

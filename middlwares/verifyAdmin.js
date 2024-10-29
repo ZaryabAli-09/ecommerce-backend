@@ -4,6 +4,8 @@ import { User } from "../models/user.model.js";
 async function verifyAdmin(req, res, next) {
   try {
     const authToken = req.cookies.access_token;
+
+    // Check if token is present
     if (!authToken) {
       return res.status(401).json({
         message: "Unauthorized access! token not present",

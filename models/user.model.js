@@ -75,11 +75,17 @@ const userSchema = new mongoose.Schema(
     // Shopping cart: Array of product items with references to product schema
     cart: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+        },
+        quantity: {
+          type: Number,
+          default: 1,
+          min: [1, "Quantity must be at least 1"],
+        },
       },
     ],
-
     // Wishlist: Array of product references the user has favorited
     wishlist: [
       {

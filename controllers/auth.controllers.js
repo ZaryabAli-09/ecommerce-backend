@@ -5,12 +5,14 @@ import { transporter } from "../utils/mailer.js";
 
 async function verifyEmail(req, res, next) {
   try {
+    // get verification token from query as we put the verification token in query in register route
     const { verificationToken } = req.query;
 
     if (!verificationToken) {
       return res.status(404).json({ message: "Verification token not found" });
     }
 
+    // verify the token get from verification link
     const decodedVerificationToken = jwt.verify(
       verificationToken,
       process.env.VERIFICATION_TOKEN_SECRET_KEY
@@ -21,7 +23,11 @@ async function verifyEmail(req, res, next) {
         message: "Invalid token",
       });
     }
-    const email = decodedVerificationToken.email;
+
+    //optional chaining for safety
+    const email = decodedVerificationToken?.email;
+
+    // finding user with help of email get from verification link token
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -37,13 +43,15 @@ async function verifyEmail(req, res, next) {
         message: "Invalid token",
       });
     }
+
+    // Update user verification status
     user.verificationToken = null;
     user.isVerified = true;
 
     await user.save();
     res
       .status(200)
-      .json({ message: "Email verified now you can access your account" });
+      .json({ message: "Email verified, you can noew access your account" });
   } catch (error) {
     next(error);
   }
@@ -51,22 +59,28 @@ async function verifyEmail(req, res, next) {
 
 async function register(req, res, next) {
   try {
+    // getting required fields data from body
     const { name, email, password } = req.body;
+
+    // input validation
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "All fields are required",
       });
     }
 
+    // Check if user with provided email already exists
     const isUserAlreadyExists = await User.findOne({ email });
     if (isUserAlreadyExists) {
       return res.status(400).json({
-        message: "User already exists",
+        message: "Email already exists, please choose another.",
       });
     }
 
+    // Password hashing
     const hashedPassword = bcryptjs.hashSync(password, 12);
 
+    // Verification token generation
     const verificationToken = jwt.sign(
       { email },
       process.env.VERIFICATION_TOKEN_SECRET_KEY,
@@ -82,11 +96,13 @@ async function register(req, res, next) {
 
     await userToBeRegistered.save();
 
+    // Remove password from the response
     userToBeRegistered.password = undefined;
 
     // generating verification link
     const verificationLink = `${process.env.BACKEND_DOMAIN_URL}/api/auth/verify-email?verificationToken=${verificationToken}`;
 
+    // Mail options
     const mailOptions = {
       from: process.env.SMTP_GMAIL_USER,
       to: email,
@@ -94,6 +110,7 @@ async function register(req, res, next) {
       text: `Please verify you email by clicking the following link:${verificationLink}`,
     };
 
+    // Send verification email
     await transporter.sendMail(mailOptions);
 
     return res.status(201).json({
@@ -133,6 +150,7 @@ async function login(req, res, next) {
         message: "Invalid credentials",
       });
     }
+
     userExists.password = undefined;
 
     if (userExists.isVerified === true) {
@@ -155,6 +173,7 @@ async function login(req, res, next) {
         });
     }
 
+    // Handle unverified user
     if (userExists.isVerified === false) {
       const newVerificationToken = jwt.sign(
         { email },
@@ -185,9 +204,10 @@ async function login(req, res, next) {
       };
 
       await transporter.sendMail(mailOptions);
+
       return res.status(400).json({
         message:
-          "Your account is not verified. Please verify your account by clicking on verification link sent to your email",
+          "Your account is not verified. Please check your email for a verification link.",
       });
     }
   } catch (error) {
@@ -195,9 +215,10 @@ async function login(req, res, next) {
   }
 }
 
-async function requestResetPassword(req, res, next) {
+async function forgotPassword(req, res, next) {
   try {
     const { email } = req.body;
+
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
@@ -205,17 +226,22 @@ async function requestResetPassword(req, res, next) {
     // Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ message: "Email not exists, please register" });
     }
 
     // Generate reset Password token
     const resetToken = jwt.sign(
       { email: user.email },
       process.env.RESET_PASSWORD_TOKEN_SECRET_KEY,
-      { expiresIn: "15m" } // Token expires in 30 minutes
+      { expiresIn: "30m" } // Token expires in 30 minutes
     );
 
+    // save reset password token in database later matching the token when user reseting password
     user.resetPasswordToken = resetToken;
+
+    // saving the user
     await user.save();
 
     // Create password reset link
@@ -229,11 +255,8 @@ async function requestResetPassword(req, res, next) {
       text: `You requested a password reset. Click the following link to reset your password: ${resetLink}`,
     };
 
-    try {
-      await transporter.sendMail(mailOptions);
-    } catch (error) {
-      console.log("Error sending reset email:", error);
-    }
+    // sending the password reset link to user email
+    await transporter.sendMail(mailOptions);
 
     return res.status(200).json({
       message: "Password reset email sent. Please check your inbox.",
@@ -263,7 +286,9 @@ async function resetPassword(req, res, next) {
       return res.status(400).json({ message: "Invalid token" });
     }
 
-    const user = await User.findOne({ email: decodedResetPasswordToken.email });
+    const user = await User.findOne({
+      email: decodedResetPasswordToken?.email,
+    });
 
     if (!user || user.resetPasswordToken !== resetPasswordToken) {
       return res.status(400).json({ message: "Invalid token" });
@@ -284,4 +309,4 @@ async function resetPassword(req, res, next) {
   }
 }
 
-export { register, login, verifyEmail, requestResetPassword, resetPassword };
+export { register, login, verifyEmail, forgotPassword, resetPassword };
