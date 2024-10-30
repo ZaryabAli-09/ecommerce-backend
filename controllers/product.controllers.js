@@ -25,20 +25,24 @@ async function createProduct(req, res, next) {
       variants,
     } = req.body;
 
+    // fields validation
     if (!name || !description || !price || !categories) {
       return res.status(400).json({
         message: "All product fields are required",
       });
     }
 
+    //  image validation
     if (!req.files) {
       return res.status(400).json({
         message: "Please upload images",
       });
     }
 
+    // find if product already exists with same name
     const existingProduct = await Product.findOne({ name });
 
+    // if products exists then the provided image should be deleted
     if (existingProduct) {
       req.files.forEach((file) => {
         const filePath = path.join(__dirname, "../public", file.filename); // Adjust the path if necessary
@@ -46,10 +50,13 @@ async function createProduct(req, res, next) {
           if (err) console.error(`Failed to delete image: ${filePath}`, err);
         });
       });
+
       return res.status(400).json({
         message: "Product with name is already exists",
       });
     }
+
+    // if product has different variants then we should calculate stocks of each variant
     if (isVariable) {
       if (variants?.length > 0) {
         const stocks = variants.reduce((acc, variant) => {
@@ -60,6 +67,8 @@ async function createProduct(req, res, next) {
         countInStock = stocks;
       }
     }
+
+    // generating slug for product
     const generateSlug = name
       .toLowerCase()
       .replace(/\s+/g, "-") // Replace spaces with hyphens
@@ -71,15 +80,19 @@ async function createProduct(req, res, next) {
       return imageInfo.path;
     });
 
+    // files uploading to cloudinary db
     const imagesUploadedToCloudinary = await uploadToCloudinary(
       localImagesPaths
     );
+
     if (!imagesUploadedToCloudinary) {
       return res.status(400).json({
         message: "Error occur while uploading images please try again",
       });
     }
+
     const imagesUrls = imagesUploadedToCloudinary.map((image) => image.url);
+    // getting images public id saved in cloudinary for further operations and saving it in db
     const imagesPublicids = imagesUploadedToCloudinary.map(
       (image) => image.public_id
     );
@@ -102,6 +115,7 @@ async function createProduct(req, res, next) {
       slug: generateSlug,
     });
 
+    // saving the product
     await savedProduct.save();
 
     return res.status(201).json({
@@ -169,13 +183,13 @@ async function deleteProduct(req, res, next) {
     });
 
     const deletedImagesresult = await Promise.all(deleteProductImages);
+
     console.log(deletedImagesresult);
 
     const productToBeDeleted = await Product.findByIdAndDelete(productId);
 
     res.status(200).json({
       message: "Product deleted successfully",
-      // urls,
       deletedProduct: productToBeDeleted,
     });
   } catch (error) {
@@ -213,8 +227,21 @@ async function getSingleProduct(req, res, next) {
 
 async function addReview(req, res, next) {
   try {
-    const { userId, productId } = req.params;
+    const { productId } = req.params;
+    const userId = req.user._id;
     const { rating, comment } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        message: "Unauthorized access, please login",
+      });
+    }
+    if (!productId) {
+      return res.status(400).json({
+        message: "product id is required",
+      });
+    }
+
     if (!rating) {
       return res.status(400).json({
         message: "Rating is required",
@@ -241,6 +268,7 @@ async function addReview(req, res, next) {
       product: productId,
       user: userId,
     });
+
     if (existingReview) {
       return res.status(400).json({
         message: "You have already reviewed this product",
@@ -264,6 +292,7 @@ async function addReview(req, res, next) {
 
     productExists.reviews.push(savedReview._id); //push the reviewid to review field in the product
     productExists.numReviews += 1; // increase number of review by 1
+
     // product rating calculation
     productExists.rating =
       (productExists.rating * (productExists.numReviews - 1) + rating) /
@@ -285,6 +314,7 @@ async function getReviews(req, res, next) {
     const reviews = await Review.find();
 
     res.status(200).json({
+      message: "Reviews retrived successfully",
       reviews,
     });
   } catch (error) {}

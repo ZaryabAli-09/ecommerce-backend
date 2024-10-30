@@ -10,6 +10,7 @@ async function getAllUsers(req, res, next) {
         message: "No user found",
       });
     }
+
     return res.status(200).json({
       users: users,
       usersLength: users.length,
@@ -31,9 +32,8 @@ async function getSingleUser(req, res, next) {
       });
     }
     return res.status(200).json({
-      user: user,
-
       message: "Single users retrieved successfully",
+      user: user,
     });
   } catch (error) {
     next(error);

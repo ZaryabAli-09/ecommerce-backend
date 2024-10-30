@@ -24,6 +24,8 @@ router.put("/update/:userId", verifyUser, updateUser);
 router.delete("/delete/:userId", verifyUser, deleteUser);
 router.post("/logout", logOut);
 
+// to be tested and refactored
+
 // Cart and Wishlist routes
 router.post("/cart/add/:productId", verifyUser, addToCartItems);
 router.post("/cart/remove/:productId", verifyUser, removeFromCart);

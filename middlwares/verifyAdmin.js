@@ -19,7 +19,7 @@ async function verifyAdmin(req, res, next) {
     );
 
     // this will find the user with id which will be provided by access_token as iam create access_token with payload of user _id
-    const userId = decodedAuthToken.id;
+    const userId = decodedAuthToken?._id;
     const user = await User.findById(userId);
 
     // Check if user is found and is an admin
