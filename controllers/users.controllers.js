@@ -137,11 +137,19 @@ async function addToCartItems(req, res, next) {
       });
     }
 
-    user.cart?.push(productId);
+    const itemExists = user.cart.find((item) => {
+      return item.product.toString() === productId;
+    });
+
+    if (itemExists) {
+      itemExists.quantity += 1;
+    } else {
+      user.cart?.push({ product: productId, quantity: 1 });
+    }
 
     await user.save();
 
-    return res.json({
+    return res.status(201).json({
       message: "Item added to cart",
     });
   } catch (error) {
@@ -152,6 +160,7 @@ async function addToCartItems(req, res, next) {
 async function removeFromCart(req, res, next) {
   try {
     const { productId } = req.params;
+
     if (!productId) {
       return res.status(400).json({
         message: "Product id not found",
@@ -165,11 +174,13 @@ async function removeFromCart(req, res, next) {
       });
     }
 
-    user.cart = user.cart?.filter((id) => id.toString() !== productId);
+    user.cart = user.cart?.filter(
+      (item) => item.product.toString() !== productId
+    );
 
     await user.save();
 
-    return res.json({
+    return res.status(200).json({
       message: "Item remove from cart",
     });
   } catch (error) {
@@ -192,13 +203,45 @@ async function addIItemToWishlist(req, res, next) {
       });
     }
 
-    user.cart?.push(productId);
+    // Check if product is already in wishlist
+    if (user.wishlist.includes(productId)) {
+      return res.status(400).json({
+        message: "Item already in wishlist",
+      });
+    }
+
+    user.wishlist.push(productId);
+    await user.save();
+
+    return res.status(201).json({
+      message: "Item added to wishlist",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+async function updateCart(req, res, next) {
+  try {
+    const { cartItems } = req.body; // cartItems is an array of { productId, quantity }
+
+    if (!cartItems || !cartItems.length) {
+      return res.status(400).json({ message: "Cart items are required" });
+    }
+
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({ message: "User is not logged in" });
+    }
+
+    user.cart = cartItems.map((item) => ({
+      product: item.productId,
+      quantity: item.quantity,
+    }));
 
     await user.save();
 
-    return res.json({
-      message: "Item added to cart",
-    });
+    return res.json({ message: "Cart updated successfully" });
   } catch (error) {
     next(error);
   }
@@ -220,12 +263,12 @@ async function removeFromWhislist(req, res, next) {
       });
     }
 
-    user.cart = user.cart?.filter((id) => id.toString() !== productId);
+    user.wishlist = user.wishlist.filter((id) => id.toString() !== productId);
 
     await user.save();
 
-    return res.json({
-      message: "Item remove from cart",
+    return res.status(200).json({
+      message: "Item remove from wishlist",
     });
   } catch (error) {
     next(error);
@@ -240,6 +283,7 @@ export {
   getSingleUser,
   addToCartItems,
   removeFromCart,
+  updateCart,
   addIItemToWishlist,
   removeFromWhislist,
 };
