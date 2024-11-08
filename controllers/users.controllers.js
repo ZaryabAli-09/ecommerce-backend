@@ -44,7 +44,7 @@ async function updateUser(req, res, next) {
   try {
     // const userId = req.user._id;
     const { userId } = req.params;
-    const { name, password, address } = req.body;
+    const { name, password, address, gender, interests } = req.body;
 
     // Update fields only if they are provided
     const updates = {};
@@ -53,6 +53,8 @@ async function updateUser(req, res, next) {
       const hashedPassword = bcryptjs.hashSync(password, 12);
       updates.password = hashedPassword;
     }
+    if (gender) updates.gender = gender;
+    if (interests) updates.interests = interests;
     if (address) {
       updates.address = {};
       if (address.street) updates.address.street = address.street;
