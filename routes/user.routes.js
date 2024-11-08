@@ -18,9 +18,9 @@ const router = express.Router();
 
 // Admin routes
 router.get("/all", verifyAdmin, getAllUsers);
-router.get("/single/:userId", verifyAdmin, getSingleUser);
 
 // user routes
+router.get("/single/:userId", verifyUser, getSingleUser);
 router.put("/update/:userId", verifyUser, updateUser);
 router.delete("/delete/:userId", verifyUser, deleteUser);
 router.post("/logout", logOut);

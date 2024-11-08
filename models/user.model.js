@@ -38,7 +38,32 @@ const userSchema = new mongoose.Schema(
       },
       default: "user",
     },
-
+    gender: {
+      type: String,
+      enum: ["male", "female"],
+      default: null,
+    },
+    interests: {
+      type: [String],
+      enum: [
+        "jackets",
+        "slippers",
+        "casual-shirts",
+        "jeans",
+        "dresses",
+        "shoes",
+        "sweaters",
+        "t-shirts",
+        "shorts",
+        "hats",
+        "accessories",
+        "activewear",
+        "bags",
+        "socks",
+        "sneakers",
+      ],
+      default: [],
+    },
     // Address object for user's shipping or billing address
     address: {
       street: { type: String, trim: true },
