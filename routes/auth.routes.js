@@ -5,6 +5,7 @@ import {
   forgotPassword,
   resetPassword,
   verifyEmail,
+  googleAuth,
 } from "../controllers/auth.controllers.js";
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.get("/verify-email", verifyEmail);
 // user register and login routes
 router.post("/register", register);
 router.post("/login", login);
+router.post("/google", googleAuth);
 
 // password forgot and reset routes
 router.post("/forgot-password", forgotPassword);

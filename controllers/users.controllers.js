@@ -109,11 +109,17 @@ async function deleteUser(req, res, next) {
 async function logOut(req, res, next) {
   try {
     // Clear the auth token cookie
-    res.clearCookie("access_token", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-    });
+    res
+      .clearCookie("access_token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      })
+      .clearCookie("refresh_token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      });
 
     return res.status(200).json({
       message: "Logged out successfully",

@@ -2,6 +2,7 @@ import { User } from "../models/user.model.js";
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { transporter } from "../utils/mailer.js";
+import { OAuth2Client } from "google-auth-library";
 
 async function verifyEmail(req, res, next) {
   try {
@@ -160,9 +161,20 @@ async function login(req, res, next) {
         { expiresIn: "1d" }
       );
 
+      const refresh_token = jwt.sign(
+        { _id: userExists._id },
+        process.env.REFRESH_TOKEN_SECRET_KEY,
+        { expiresIn: "10d" }
+      );
+
       return res
         .status(200)
         .cookie("access_token", access_token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "None",
+        })
+        .cookie("refresh_token", refresh_token, {
           httpOnly: true,
           secure: true,
           sameSite: "None",
@@ -210,6 +222,81 @@ async function login(req, res, next) {
           "Your account is not verified. Please check your email for a verification link.",
       });
     }
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function googleAuth(req, res, next) {
+  try {
+    const { googleIdToken } = req.body;
+
+    const client = new OAuth2Client(process.env.GOOGLEAUTH_CLIENTID);
+
+    // verify google token
+    const ticket = await client.verifyIdToken({
+      idToken: googleIdToken,
+      audience: process.env.GOOGLEAUTH_CLIENTID,
+    });
+
+    // Get user info from Google
+    const { name, email } = ticket.getPayload();
+
+    let user = await User.findOne({ email });
+
+    // if user is not registered save the user in db and directly login the user to website
+    if (!user) {
+      // Password hashing
+      const hashedPassword = bcryptjs.hashSync(
+        Math.random().toString(36).slice(-8),
+        12
+      );
+
+      user = new User({
+        name,
+        email,
+        password: hashedPassword,
+      });
+
+      // Update user verification status
+      user.verificationToken = null;
+      user.isVerified = true;
+
+      //  save the user in db
+      await user.save();
+    }
+
+    const access_token = jwt.sign(
+      { _id: user._id },
+      process.env.ACCESS_TOKEN_SECRET_KEY,
+      { expiresIn: "1d" }
+    );
+
+    const refresh_token = jwt.sign(
+      { _id: user._id },
+      process.env.REFRESH_TOKEN_SECRET_KEY,
+      { expiresIn: "10d" }
+    );
+
+    user.password = undefined;
+
+    return res
+      .status(200)
+      .cookie("access_token", access_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      })
+      .cookie("refresh_token", refresh_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      })
+
+      .json({
+        user: user,
+        message: "Google Signed in successfully",
+      });
   } catch (error) {
     next(error);
   }
@@ -310,4 +397,11 @@ async function resetPassword(req, res, next) {
   }
 }
 
-export { register, login, verifyEmail, forgotPassword, resetPassword };
+export {
+  register,
+  login,
+  googleAuth,
+  verifyEmail,
+  forgotPassword,
+  resetPassword,
+};
