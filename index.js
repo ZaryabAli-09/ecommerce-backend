@@ -11,6 +11,7 @@ import ProductRoutes from "./routes/product.routes.js";
 import OrderRoutes from "./routes/order.routes.js";
 import ReviewRoutes from "./routes/review.routes.js";
 import CategoryRoutes from "./routes/category.routes.js";
+import CartWishlistRoutes from "./routes/cart-wishlist.routes.js";
 // Load environment variables
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", AuthRoutes);
 
 app.use("/api/users", UserRoutes);
+app.use("/api/users", CartWishlistRoutes);
 
 app.use("/api/product", ProductRoutes);
 app.use("/api/product", ReviewRoutes);

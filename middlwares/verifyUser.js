@@ -5,7 +5,6 @@ async function verifyUser(req, res, next) {
   try {
     const authToken = req.cookies.access_token;
     const refreshToken = req.cookies.refresh_token;
-    console.log(req.cookies);
 
     // Check if token is present
     if (!authToken && !refreshToken) {
