@@ -133,7 +133,10 @@ async function login(req, res, next) {
       });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email }).populate({
+      path: "cart.product", // Specify the field to populate (cart.product)
+      select: "name price images", // Select the fields you want from the Product model
+    });
 
     if (!userExists) {
       return res.status(404).json({

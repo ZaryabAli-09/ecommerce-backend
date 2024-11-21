@@ -5,11 +5,6 @@ import {
   updateUser,
   deleteUser,
   getSingleUser,
-  addToCartItems,
-  removeFromCart,
-  addIItemToWishlist,
-  removeFromWhislist,
-  updateCart,
 } from "../controllers/users.controllers.js";
 import { verifyAdmin } from "../middlwares/verifyAdmin.js";
 import { verifyUser } from "../middlwares/verifyUser.js";
@@ -24,16 +19,5 @@ router.get("/single/:userId", verifyUser, getSingleUser);
 router.put("/update/:userId", verifyUser, updateUser);
 router.delete("/delete/:userId", verifyUser, deleteUser);
 router.post("/logout", logOut);
-
-// to be tested and refactored
-// Cart and Wishlist routes
-router.post("/cart/add/:productId", verifyUser, addToCartItems);
-router.post("/cart/remove/:productId", verifyUser, removeFromCart);
-router.put("/cart/update", verifyUser, updateCart);
-// router.get("/cart", verifyUser, getCartItems);
-
-router.post("/wishlist/add/:productId", verifyUser, addIItemToWishlist);
-router.post("/wishlist/remove/:productId", verifyUser, removeFromWhislist);
-// router.get("/wishlist", verifyUser, getWishlistItems);
 
 export default router;

@@ -1,33 +1,5 @@
 import mongoose from "mongoose";
 
-// Review Schema
-const reviewSchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Reference to the User model
-      required: true,
-    },
-    rating: {
-      type: Number,
-      required: [true, "Please give Rating"],
-      min: [1, "Rating must be at least 1"],
-      max: [5, "Rating must not be more than 5"],
-    },
-    comment: {
-      type: String,
-      trim: true,
-      maxlength: [200, "Comment must not be more than 200 characters"],
-    },
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
-      required: true, // Ensures every review is linked to a product
-    },
-  },
-  { timestamps: true } // Automatically handles createdAt and updatedAt timestamps
-);
-
 // Variant Schema for Variable Products
 const variantSchema = new mongoose.Schema({
   size: {
@@ -44,28 +16,6 @@ const variantSchema = new mongoose.Schema({
     default: 0,
   },
 });
-
-const categorySchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    parent: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Category", // Reference to the same Category model for parent-child relationship
-      default: null, // Null indicates that this is a top-level category
-    },
-    subCategories: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Category", // Reference to subcategories
-      },
-    ],
-  },
-  { timestamps: true }
-);
 
 // Main Product Schema
 const productSchema = new mongoose.Schema(
@@ -142,8 +92,6 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Category = mongoose.model("Category", categorySchema);
 const Product = mongoose.model("Product", productSchema);
-const Review = mongoose.model("Review", reviewSchema);
 
-export { Product, Category, Review };
+export { Product };

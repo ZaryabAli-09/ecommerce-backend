@@ -8,6 +8,9 @@ import compression from "compression";
 import AuthRoutes from "./routes/auth.routes.js";
 import UserRoutes from "./routes/user.routes.js";
 import ProductRoutes from "./routes/product.routes.js";
+import OrderRoutes from "./routes/order.routes.js";
+import ReviewRoutes from "./routes/review.routes.js";
+import CategoryRoutes from "./routes/category.routes.js";
 // Load environment variables
 dotenv.config();
 
@@ -29,8 +32,14 @@ app.get("/", (req, res) => {
   res.send("Ecommerce api is working");
 });
 app.use("/api/auth", AuthRoutes);
+
 app.use("/api/users", UserRoutes);
+
 app.use("/api/product", ProductRoutes);
+app.use("/api/product", ReviewRoutes);
+app.use("/api/product", CategoryRoutes);
+
+app.use("/api/order", OrderRoutes);
 
 // Wildcard route for handling 404 errors
 app.get("*", (req, res) => {
