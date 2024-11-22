@@ -309,7 +309,6 @@ async function forgotPassword(req, res, next) {
   try {
     const { email } = req.body;
 
-    console.log(email);
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }

@@ -30,6 +30,12 @@ const orderSchema = new mongoose.Schema(
       enum: ["cash on delivery", "card"],
       required: true,
     },
+    paymentDetails: {
+      // Optional, populated only if payment is made online
+      transactionId: { type: String, trim: true }, // From the payment gateway
+      paymentGateway: { type: String, trim: true }, // e.g., "Stripe", "PayPal"
+      paymentDate: { type: Date }, // When payment was made
+    },
 
     orderStatus: {
       type: String,

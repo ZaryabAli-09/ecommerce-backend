@@ -194,7 +194,7 @@ async function syncCartItems(req, res, next) {
   const { localCart } = req.body; // Cart from the frontend (unauthenticated user's cart)
   const userId = req.user.id; // Assuming user ID is available in req.user after authentication middleware
 
-  console.log(localCart);
+  console.log("local cart", localCart);
   if (!localCart || !Array.isArray(localCart)) {
     return res.status(400).json({ message: "Invalid cart data" });
   }

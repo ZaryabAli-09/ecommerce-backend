@@ -94,8 +94,8 @@ async function createProduct(req, res, next) {
       (image) => image.public_id
     );
 
-    console.log(imagesUrls);
-    console.log(imagesPublicids);
+    console.log("uploaded images urls", imagesUrls);
+    console.log("uploaded images public ids", imagesPublicids);
 
     const savedProduct = new Product({
       name,
@@ -181,7 +181,7 @@ async function deleteProduct(req, res, next) {
 
     const deletedImagesresult = await Promise.all(deleteProductImages);
 
-    console.log(deletedImagesresult);
+    console.log("deleted images url", deletedImagesresult);
 
     const productToBeDeleted = await Product.findByIdAndDelete(productId);
 
