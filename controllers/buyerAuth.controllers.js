@@ -102,6 +102,15 @@ async function register(req, res, next) {
       throw new ApiError(400, "All fields are required.");
     }
 
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      throw new ApiError(
+        400,
+        "Password must be at least 8 characters long, include at least 1 uppercase letter, 1 lowercase letter, and 1 number."
+      );
+    }
+
     // *** check if email alreay exists in db ***
 
     const existingBuyer = await Buyer.findOne({ email });
