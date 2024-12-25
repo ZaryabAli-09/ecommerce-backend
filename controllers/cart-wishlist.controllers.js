@@ -71,12 +71,7 @@ async function getCartItems(req, res, next) {
 
     res
       .status(200)
-      .json(
-        new ApiResponse(
-          { cart: buyer.cart },
-          "Cart items retrieved successfully."
-        )
-      );
+      .json(new ApiResponse(buyer.cart, "Cart items retrieved successfully."));
   } catch (error) {
     next(error);
   }
@@ -90,24 +85,27 @@ async function updateCart(req, res, next) {
       throw new ApiError(400, "Cart items are required.");
     }
 
-    const buyer = req.buyer;
+    let buyer = req.buyer;
 
     if (!buyer) {
       throw new ApiError(400, "Buyer not found.");
     }
 
     buyer.cart = cartItems.map((item) => ({
-      product: item.productId,
+      product: item.product,
       quantity: item.quantity,
     }));
+
+    buyer = await buyer.populate({
+      path: "cart.product",
+      select: "name price images",
+    });
 
     await buyer.save();
 
     res
       .status(200)
-      .json(
-        new ApiResponse({ cart: buyer.cart }, "Cart updated successfully.")
-      );
+      .json(new ApiResponse(buyer.cart, "Cart updated successfully."));
   } catch (error) {
     next(error);
   }
@@ -135,7 +133,7 @@ async function removeFromCart(req, res, next) {
 
     res
       .status(200)
-      .json(new ApiResponse({ cart: buyer.cart }, "Item removed from cart."));
+      .json(new ApiResponse(buyer.cart, "Item removed from cart."));
   } catch (error) {
     next(error);
   }
@@ -164,9 +162,7 @@ async function addIItemToWishlist(req, res, next) {
 
     res
       .status(201)
-      .json(
-        new ApiResponse({ wishlist: buyer.wishlist }, "Item added to wishlist.")
-      );
+      .json(new ApiResponse(buyer.wishlist, "Item added to wishlist."));
   } catch (error) {
     next(error);
   }
@@ -185,10 +181,7 @@ async function getWishList(req, res, next) {
     res
       .status(200)
       .json(
-        new ApiResponse(
-          { wishlist: buyer.wishlist },
-          "Wishlist retrieved successfully."
-        )
+        new ApiResponse(buyer.wishlist, "Wishlist retrieved successfully.")
       );
   } catch (error) {
     next(error);
@@ -215,12 +208,7 @@ async function removeFromWhislist(req, res, next) {
 
     res
       .status(200)
-      .json(
-        new ApiResponse(
-          { wishlist: buyer.wishlist },
-          "Item removed from wishlist."
-        )
-      );
+      .json(new ApiResponse(buyer.wishlist, "Item removed from wishlist."));
   } catch (error) {
     next(error);
   }

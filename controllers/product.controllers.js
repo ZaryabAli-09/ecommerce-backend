@@ -236,9 +236,14 @@ async function getSingleProduct(req, res, next) {
   try {
     const { productId } = req.params;
     const product = await Product.findById(productId)
-      .populate("reviews", "user name")
-      .populate("categories", "name");
-
+      .populate({
+        path: "reviews",
+        populate: {
+          path: "user", // Populate the 'user' field in 'reviews'
+          select: "name", // Select only the 'name' field from 'user'
+        },
+      })
+      .populate("categories", "name"); // Populate 'categories' and select only 'name'
     res
       .status(200)
       .json(new ApiResponse(product, "Product retrieved successfully."));
