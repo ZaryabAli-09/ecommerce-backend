@@ -79,10 +79,14 @@ async function getCartItems(req, res, next) {
 
 async function updateCart(req, res, next) {
   try {
-    const { cartItems } = req.body;
+    const { cartId, quantity } = req.body;
 
-    if (!cartItems || !cartItems.length) {
-      throw new ApiError(400, "Cart items are required.");
+    if (!cartId || !quantity) {
+      throw new ApiError(400, "Cart item details are required for updating.");
+    }
+
+    if (quantity < 1 || quantity > 3) {
+      throw new ApiError(400, "Quantity must be between 1 and 3.");
     }
 
     let buyer = req.buyer;
@@ -91,21 +95,43 @@ async function updateCart(req, res, next) {
       throw new ApiError(400, "Buyer not found.");
     }
 
-    buyer.cart = cartItems.map((item) => ({
-      product: item.product,
-      quantity: item.quantity,
-    }));
+    // Locate the cart item by cartId
+    const cartItemIndex = await buyer.cart.findIndex(
+      (item) => item._id.toString() === cartId
+    );
 
+    if (cartItemIndex === -1) {
+      throw new ApiError(404, "Cart item not found.");
+    }
+
+    // Update the quantity for the specific cart item
+    buyer.cart[cartItemIndex].quantity = quantity;
+
+    // Save the updated cart
+    await buyer.save();
     buyer = await buyer.populate({
       path: "cart.product",
       select: "name price images",
     });
 
-    await buyer.save();
+    const totalQuantity = buyer.cart.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+    const totalAmount = buyer.cart.reduce(
+      (sum, item) => sum + item.quantity * item.product.price,
+      0
+    );
 
+    console.log(totalQuantity, totalAmount);
     res
       .status(200)
-      .json(new ApiResponse(buyer.cart, "Cart updated successfully."));
+      .json(
+        new ApiResponse(
+          { cart: buyer.cart, totalQuantity, totalAmount },
+          "cart successfully updated."
+        )
+      );
   } catch (error) {
     next(error);
   }

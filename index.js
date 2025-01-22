@@ -31,11 +31,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Built-in Middlewares
+app.use(cors({ origin: "http://localhost:5173", credentials: true })); // When credentials: true is set, it means that cookies will be included in cross-origin requests made by your frontend applicati
 app.use(express.json()); // Parsing JSON bodies
 app.use(helmet()); // Security headers
 app.use(cookieParser()); // Parse cookies from request headers
 app.use(compression()); // Compress response bodies
-app.use(cors({ origin: "http://localhost:5173", credentials: true })); // When credentials: true is set, it means that cookies will be included in cross-origin requests made by your frontend applicati
 
 // Api testing route
 app.get("/", (req, res) => {

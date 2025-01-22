@@ -62,7 +62,7 @@ async function verifyEmail(req, res, next) {
     await existingSeller.save();
 
     res
-      .status(400)
+      .status(200)
       .json(
         new ApiResponse(
           null,
@@ -140,12 +140,7 @@ async function register(req, res, next) {
         maxAge: 24 * 60 * 60 * 1000, // 1 day
       })
       .status(201)
-      .json(
-        new ApiResponse(
-          null,
-          "Registered successfully. OTP sent to your email for verification."
-        )
-      );
+      .json(new ApiResponse(null, "OTP sent to your email for verification."));
   } catch (error) {
     next(error);
   }
