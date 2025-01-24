@@ -387,7 +387,11 @@ async function resendOtp(req, res, next) {
     await existingSeller.save();
 
     // Send the new OTP to the email
+
+    console.log(email, process.env.SMTP_GMAIL_USER);
+
     await sendEmail(
+      process.env.SMTP_GMAIL_USER,
       email,
       "Resend OTP",
       `Please use the following OTP to verify your email address: ${otp}`
