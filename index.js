@@ -13,6 +13,7 @@ import { errorMiddleware } from "./middlwares/errorMiddleware.js";
 // Routes imports
 import buyerAuthRoutes from "./routes/buyerAuth.routes.js";
 import BuyerRoutes from "./routes/buyer.routes.js";
+import SellerRoutes from "./routes/seller.routes.js";
 import ProductRoutes from "./routes/product.routes.js";
 import OrderRoutes from "./routes/order.routes.js";
 import ReviewRoutes from "./routes/review.routes.js";
@@ -48,6 +49,7 @@ app.use("/api/seller/auth", SellerAuthRoutes);
 app.use("/api/auth/admin", AdminAuthRoutes);
 
 app.use("/api/buyer", BuyerRoutes);
+app.use("/api/seller", SellerRoutes);
 
 app.use("/api/buyer", CartWishlistRoutes);
 app.use("/api/product", ProductRoutes);

@@ -47,15 +47,15 @@ const sellerSchema = new mongoose.Schema(
       twitter: String,
       linkedin: String,
     },
-    role: {
-      type: String,
-      default: "seller",
-      immutable: true, // Ensures the role cannot be changed after creation
-    },
     bankDetails: {
       bankName: String,
       accountNumber: String,
       accountHolderName: String,
+    },
+    role: {
+      type: String,
+      default: "seller",
+      immutable: true, // Ensures the role cannot be changed after creation
     },
 
     status: {

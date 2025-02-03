@@ -26,11 +26,15 @@ async function createProduct(req, res, next) {
       variants,
     } = req.body;
 
+    console.log(req.body);
     // validation of body fields
     if (!name || !description || !price || !categories) {
       throw new ApiError(400, "All product fields are required.");
     }
 
+    if (discountedPrice === "null") {
+      discountedPrice = null;
+    }
     // check if images are present in request or not
     if (!req.files) {
       throw new ApiError(400, "Please upload image.");
@@ -220,7 +224,10 @@ async function updateProduct(req, res, next) {
 async function getSellerProducts(req, res, next) {
   try {
     const sellerId = req.seller._id;
-    const products = await Product.find({ seller: sellerId });
+    const products = await Product.find({ seller: sellerId }).populate(
+      "categories",
+      "name"
+    ); // Populate 'categories' and select only 'name
 
     res
       .status(200)
