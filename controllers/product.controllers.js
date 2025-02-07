@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { v2 as cloudinary } from "cloudinary";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import mongoose from "mongoose";
 
 // Get the directory name from the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -15,44 +16,48 @@ async function createProduct(req, res, next) {
   const sellerId = req.seller._id;
 
   try {
-    let {
-      name,
-      description,
-      price,
-      discountedPrice,
-      categories,
-      isVariable,
-      countInStock,
-      variants,
-    } = req.body;
+    let { name, description, categories, variants } = req.body;
 
-    console.log(req.body);
     // validation of body fields
-    if (!name || !description || !price || !categories) {
+    if (
+      !name ||
+      !description ||
+      !categories ||
+      !variants ||
+      variants.length === 0
+    ) {
       throw new ApiError(400, "All product fields are required.");
     }
 
-    if (discountedPrice === "null") {
-      discountedPrice = null;
-    }
-    // check if images are present in request or not
-    if (!req.files) {
-      throw new ApiError(400, "Please upload image.");
-    }
+    variants = variants.map((variant) => ({
+      ...variant,
+      discountedPrice:
+        variant.discountedPrice === "null" ? null : variant.discountedPrice,
+    }));
 
     // check if product with same name is already in db
     const existingProduct = await Product.findOne({ name, seller: sellerId });
 
     // if product is already present in db then delete the images that is on our server uploaded by seller
     if (existingProduct) {
-      req.files.forEach((file) => {
-        const filePath = path.join(__dirname, "../public", file.filename);
-        fs.unlink(filePath, (err) => {
-          if (err) console.error(`Failed to delete image: ${filePath}`, err);
-        });
+      Object.values(req.files || {}).forEach((files) => {
+        if (Array.isArray(files)) {
+          files.forEach((file) => {
+            const filePath = path.join(__dirname, "../public", file.filename);
+            fs.unlink(filePath, (err) => {
+              if (err)
+                console.error(`Failed to delete image: ${filePath}`, err);
+            });
+          });
+        } else {
+          const filePath = path.join(__dirname, "../public", files.filename);
+          fs.unlink(filePath, (err) => {
+            if (err) console.error(`Failed to delete image: ${filePath}`, err);
+          });
+        }
       });
 
-      // sending response if product already exist with same name and seller
+      // sending response if product already exists with same name and seller
       return res
         .status(400)
         .json(
@@ -63,13 +68,49 @@ async function createProduct(req, res, next) {
         );
     }
 
-    // if product is variable means it has different color sizes etc then count each of its stock and set it as total stock which is countInStock field in product model
-    if (isVariable && variants?.length > 0) {
-      const stocks = variants.reduce((acc, variant) => {
-        return acc + Number(variant.stock);
-      }, 0);
-      countInStock = stocks;
-    }
+    // Upload images to Cloudinary and associate them with the correct variant
+    const uploadedVariants = await Promise.all(
+      variants.map(async (variant, index) => {
+        // Filter files for this variant
+        const variantFiles = req.files?.[`variants[${index}][images]`];
+
+        // Ensure variantFiles is an array
+        const localImagePaths = Array.isArray(variantFiles)
+          ? variantFiles.map((file) => file.path)
+          : variantFiles
+          ? [variantFiles.path]
+          : [];
+
+        const uploadedImages =
+          localImagePaths.length > 0
+            ? await uploadToCloudinary(localImagePaths)
+            : [];
+        // If there's an error uploading images, delete them from the server
+        if (localImagePaths.length > 0 && !uploadedImages) {
+          variantFiles.forEach((file) => {
+            const filePath = path.join(__dirname, "../public", file.filename);
+            fs.unlink(filePath, (err) => {
+              if (err)
+                console.error(`Failed to delete image: ${filePath}`, err);
+            });
+          });
+          throw new ApiError(400, "Error uploading images, please try again.");
+        }
+
+        // Assign Cloudinary URLs and public IDs to the variant
+        return {
+          ...variant,
+          images: uploadedImages.map((image) => image.url),
+          imagesPublicIds: uploadedImages.map((image) => image.public_id),
+        };
+      })
+    );
+
+    // Calculate total stock from variants
+    const countInStock = variants.reduce(
+      (acc, variant) => acc + Number(variant.stock || 0),
+      0
+    );
 
     // generating unique slug for product will be used in future for getting specific product
     const generateSlug = name
@@ -79,66 +120,39 @@ async function createProduct(req, res, next) {
       .replace(/\-\-+/g, "-")
       .replace(/^-+|-+$/g, "");
 
-    //  looping through our images in server uploaded through multer to our server and assigning the array to variables to upload it to cloud plateform like cloudinary aws s3 etc
-    const localImagesPaths = req.files.map((imageInfo) => imageInfo.path);
-
-    // uploading images to cloudinary
-    const imagesUploadedToCloudinary = await uploadToCloudinary(
-      localImagesPaths
-    );
-
-    // if there is an error occur in uploading images to cloudinary then send response and delete all the images from server
-    if (!imagesUploadedToCloudinary) {
-      req.files.forEach((file) => {
-        const filePath = path.join(__dirname, "../public", file.filename);
-        fs.unlink(filePath, (err) => {
-          if (err) console.error(`Failed to delete image: ${filePath}`, err);
-        });
-      });
-
-      return res
-        .status(400)
-        .json(
-          new ApiResponse(null, "Error uploading images, please try again.")
-        );
-    }
-
-    // assigning cloudinary images urls array to to variable
-    const imagesUrls = imagesUploadedToCloudinary.map((image) => image.url);
-
-    // assigning cloudinary images public ids array to to variable  for further operation like deleting image when product is deleted etc we implememt the deleting operation through public ids
-    const imagesPublicids = imagesUploadedToCloudinary.map(
-      (image) => image.public_id
-    );
-
-    const savedProduct = new Product({
+    const newProduct = new Product({
       seller: sellerId,
       name,
       description,
-      price,
-      discountedPrice,
       countInStock,
       categories,
-      isVariable,
-      variants,
-      images: imagesUrls,
-      imagesPublicIds: imagesPublicids,
+      variants: uploadedVariants,
+
       slug: generateSlug,
     });
 
     // saving product in db
-    await savedProduct.save();
+    await newProduct.save();
 
     // sending success response after product successfully created
     return res
       .status(201)
-      .json(new ApiResponse(savedProduct, "Product created successfully."));
+      .json(new ApiResponse(newProduct, "Product created successfully."));
   } catch (error) {
-    req.files.forEach((file) => {
-      const filePath = path.join(__dirname, "../public", file.filename);
-      fs.unlink(filePath, (err) => {
-        if (err) console.error(`Failed to delete image: ${filePath}`, err);
-      });
+    Object.values(req.files || {}).forEach((files) => {
+      if (Array.isArray(files)) {
+        files.forEach((file) => {
+          const filePath = path.join(__dirname, "../public", file.filename);
+          fs.unlink(filePath, (err) => {
+            if (err) console.error(`Failed to delete image: ${filePath}`, err);
+          });
+        });
+      } else {
+        const filePath = path.join(__dirname, "../public", files.filename);
+        fs.unlink(filePath, (err) => {
+          if (err) console.error(`Failed to delete image: ${filePath}`, err);
+        });
+      }
     });
     next(error);
   }
@@ -161,9 +175,13 @@ async function deleteProduct(req, res, next) {
       );
     }
 
-    const imagesPublicIdArray = productExist.imagesPublicIds;
+    // Collect all the publicIds from each variant
+    const allImagesPublicIds = productExist.variants.flatMap(
+      (variant) => variant.imagesPublicIds
+    );
 
-    const deleteProductImages = imagesPublicIdArray.map((publicId) => {
+    // Delete images from Cloudinary
+    const deleteProductImages = allImagesPublicIds.map((publicId) => {
       return cloudinary.uploader.destroy(publicId);
     });
 
@@ -192,6 +210,11 @@ async function updateProduct(req, res, next) {
   try {
     const { productId } = req.params;
     const sellerId = req.seller._id;
+
+    // Ensure the productId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      throw new ApiError(400, "Invalid product ID format.");
+    }
 
     const productExist = await Product.findOne({
       _id: productId,
@@ -235,6 +258,7 @@ async function getSellerProducts(req, res, next) {
         new ApiResponse(products, "Seller products retrived successfully.")
       );
   } catch (error) {
+    S;
     next(error);
   }
 }

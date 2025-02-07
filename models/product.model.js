@@ -2,18 +2,35 @@ import mongoose from "mongoose";
 
 // Variant Schema for Variable Products
 const variantSchema = new mongoose.Schema({
+  _id: {
+    type: mongoose.Schema.Types.ObjectId,
+    auto: true, // Ensures each variant has a unique ID
+  },
   size: {
-    type: String,
-    required: true,
+    type: String, // Optional (Only for clothes/shoes)
   },
   color: {
-    type: String,
+    type: String, // Optional (Only if the product has color variations)
+  },
+  price: {
+    type: Number, // Each variant can have its own price
     required: true,
+  },
+  discountedPrice: {
+    type: Number, // Discounted price per variant
+    default: null, // No discount by default
   },
   stock: {
     type: Number,
     required: true,
     default: 0,
+  },
+  images: {
+    type: [String],
+  },
+  imagesPublicIds: {
+    type: [String],
+    // required: [true, "Product images public id is required"],
   },
 });
 
@@ -42,22 +59,7 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product slug is required"],
       unique: true,
     },
-    price: {
-      type: Number,
-      required: [true, "Product Price is required"],
-    },
-    discountedPrice: {
-      type: Number,
-      default: null, // Can be null if there is no discount
-    },
-    images: {
-      type: [String], // Array of image URLs
-      required: [true, "Product images is required"],
-    },
-    imagesPublicIds: {
-      type: [String],
-      required: [true, "Product images public id is required"],
-    },
+
     numReviews: {
       type: Number,
       default: 0,
@@ -72,13 +74,13 @@ const productSchema = new mongoose.Schema(
     },
     countInStock: {
       type: Number,
-      default: 1,
+      default: 0,
     },
     categories: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Category", // Linking to Category schema
-        required: [true, "Product categories is required"],
+        // required: [true, "Product categories is required"],
       },
     ],
     reviews: [
@@ -87,10 +89,7 @@ const productSchema = new mongoose.Schema(
         ref: "Review", // Store only review references here
       },
     ],
-    isVariable: {
-      type: Boolean,
-      default: false, // Indicates if the product has variants
-    },
+
     variants: [variantSchema], // Array of product variants for variable products
   },
   { timestamps: true }

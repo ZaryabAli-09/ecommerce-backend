@@ -37,6 +37,7 @@ app.use(express.json()); // Parsing JSON bodies
 app.use(helmet()); // Security headers
 app.use(cookieParser()); // Parse cookies from request headers
 app.use(compression()); // Compress response bodies
+// Middleware to handle json and urlencoded data for non-file routes
 
 // Api testing route
 app.get("/", (req, res) => {

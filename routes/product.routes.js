@@ -12,12 +12,7 @@ import { verifySeller } from "../middlwares/verifySeller.js";
 const router = express.Router();
 
 // seller routes
-router.post(
-  "/create",
-  uploadFileUsingMulter.array("images", 10),
-  verifySeller,
-  createProduct
-);
+router.post("/create", uploadFileUsingMulter, verifySeller, createProduct);
 router.put("/update/:productId", verifySeller, updateProduct);
 router.get("/seller-products", verifySeller, getSellerProducts);
 router.delete("/delete/:productId", verifySeller, deleteProduct);
