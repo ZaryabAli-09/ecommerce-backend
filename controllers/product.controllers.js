@@ -227,11 +227,17 @@ async function updateProduct(req, res, next) {
         "Product not found or you do not have permission to delete it."
       );
     }
-
+    // Calculate the new countInStock by summing the stock of all variants
+    const updatedVariants = req.body.variants || productExist.variants;
+    const newCountInStock = updatedVariants.reduce(
+      (acc, variant) => acc + Number(variant.stock || 0),
+      0
+    );
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       {
         ...req.body,
+        countInStock: newCountInStock,
       },
       { new: true }
     );
