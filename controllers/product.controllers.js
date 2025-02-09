@@ -158,6 +158,21 @@ async function createProduct(req, res, next) {
   }
 }
 
+const deleteProductImage = async (req, res, next) => {
+  const { publicId } = req.params;
+  console.log(publicId);
+  try {
+    const deletedImg = await cloudinary.uploader.destroy(publicId); // Delete image from Cloudinary
+    if (!deletedImg) {
+      throw new ApiError(400, "Some thing went wrong. Please try again later.");
+    }
+
+    res.status(200).json(new ApiResponse("Image deleted successfully."));
+  } catch (error) {
+    next(error);
+  }
+};
+
 async function deleteProduct(req, res, next) {
   try {
     const { productId } = req.params;
@@ -308,4 +323,5 @@ export {
   getAllProducts,
   getSellerProducts,
   getSingleProduct,
+  deleteProductImage,
 };
