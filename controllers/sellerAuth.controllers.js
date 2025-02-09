@@ -405,6 +405,25 @@ async function resendOtp(req, res, next) {
     next(error);
   }
 }
+async function logout(req, res, next) {
+  try {
+    res
+      .clearCookie("access_token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      })
+      .clearCookie("refresh_token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      })
+      .status(200)
+      .json(new ApiResponse(null, "Logged out successfully."));
+  } catch (error) {
+    next(error);
+  }
+}
 
 export {
   register,
@@ -413,4 +432,5 @@ export {
   resendOtp,
   forgotPassword,
   resetPassword,
+  logout,
 };

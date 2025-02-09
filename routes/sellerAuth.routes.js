@@ -3,6 +3,7 @@ import { validateSeller } from "../middlwares/validationMiddlewares/sellerValida
 import {
   forgotPassword,
   login,
+  logout,
   register,
   resendOtp,
   resetPassword,
@@ -17,5 +18,6 @@ router.post("/resend-otp", resendOtp);
 
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:resetPasswordToken", resetPassword);
+router.post("/logout", logout);
 
 export default router;
