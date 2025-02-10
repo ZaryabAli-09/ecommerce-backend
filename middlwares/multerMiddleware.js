@@ -35,4 +35,4 @@ const uploadFileUsingMulter = upload.fields([
 ]);
 
 // In your route, use .fields() to accept multiple fields
-export { uploadFileUsingMulter };
+export { uploadFileUsingMulter, upload };

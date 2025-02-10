@@ -37,4 +37,27 @@ async function uploadToCloudinary(localPathImages) {
   }
 }
 
-export { uploadToCloudinary };
+async function uploadSingleImageToCloudinary(localPathImage) {
+  try {
+    if (!localPathImage) {
+      throw new Error("No file provided for upload");
+    }
+
+    const result = await cloudinary.uploader.upload(localPathImage, {
+      resource_type: "image",
+    });
+
+    fs.unlinkSync(localPathImage); // Remove local file after upload
+    return result;
+  } catch (error) {
+    console.error("Error uploading to Cloudinary:", error.message);
+
+    if (fs.existsSync(localPathImage)) {
+      fs.unlinkSync(localPathImage);
+      console.log(`Deleted local file due to error: ${localPathImage}`);
+    }
+    throw error;
+  }
+}
+
+export { uploadToCloudinary, uploadSingleImageToCloudinary };

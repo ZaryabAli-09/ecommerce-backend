@@ -2,6 +2,15 @@ import { Seller } from "../models/seller.model.js";
 import bcryptjs from "bcryptjs";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import fs from "fs";
+import { uploadSingleImageToCloudinary } from "../config/cloudinary.config.js";
+import { v2 as cloudinary } from "cloudinary";
+
+import { fileURLToPath } from "url";
+import path from "path";
+// Get the directory name from the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function getAllSellers(req, res, next) {
   try {
@@ -134,4 +143,66 @@ async function deleteSeller(req, res, next) {
   }
 }
 
-export { getAllSellers, getSingleSeller, updateSeller, deleteSeller };
+const uploadImage = async (req, res, next) => {
+  try {
+    if (!req.file) throw new ApiError(400, "No file uploaded");
+
+    console.log(req.body.oldPublicId);
+    // Upload to Cloudinary
+    const result = await uploadSingleImageToCloudinary(req.file.path);
+
+    // Delete the local file after successful upload
+    if (!result) {
+      throw new Error("Failed to upload Image. Please try again later.");
+    }
+
+    // Delete old image from Cloudinary if exists
+    if (req.body.oldPublicId) {
+      console.log("hit ");
+      const result = await cloudinary.uploader.destroy(req.body.oldPublicId);
+      console.log(result);
+      if (!result) {
+        throw new Error("Failed to upload Image. Please try again later.");
+      }
+    }
+
+    // Update seller
+    const updatedSeller = await Seller.findByIdAndUpdate(
+      req.seller._id,
+      {
+        [req.imageType]: {
+          url: result.secure_url,
+          public_id: result.public_id,
+        },
+      },
+      { new: true }
+    );
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          updatedSeller[req.imageType],
+          `${req.imageType} updated successfully`
+        )
+      );
+  } catch (error) {
+    // Cleanup: Delete the local file if error occurs
+    if (req.file?.filename) {
+      const filePath = path.join(__dirname, "../public", req.file.filename);
+      fs.unlink(filePath, (err) => {
+        if (err)
+          console.error(`Failed to delete Seller image: ${filePath}`, err);
+      });
+    }
+    next(error);
+  }
+};
+
+export {
+  getAllSellers,
+  getSingleSeller,
+  updateSeller,
+  deleteSeller,
+  uploadImage,
+};

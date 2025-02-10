@@ -35,11 +35,29 @@ const sellerSchema = new mongoose.Schema(
     },
     businessAddress: { type: String },
 
+    sizeCharts: [
+      {
+        chartCategory: String,
+        chartUrl: String,
+      },
+    ],
+
     logo: {
-      type: String, // URL to logo image
+      url: {
+        type: String, // URL to cover image
+      },
+      public_id: {
+        type: String, // URL to cover image
+      },
     },
+
     coverImage: {
-      type: String, // URL to cover image
+      url: {
+        type: String, // URL to cover image
+      },
+      public_id: {
+        type: String, // URL to cover image
+      },
     },
     socialLinks: {
       instagram: String,
