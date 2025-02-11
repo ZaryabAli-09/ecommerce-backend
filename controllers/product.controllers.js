@@ -175,6 +175,7 @@ const deleteProductImage = async (req, res, next) => {
   }
 };
 
+// future note : we also make sure to delete its reviews
 async function deleteProduct(req, res, next) {
   try {
     const { productId } = req.params;
