@@ -100,8 +100,10 @@ async function createProduct(req, res, next) {
         // Assign Cloudinary URLs and public IDs to the variant
         return {
           ...variant,
-          images: uploadedImages.map((image) => image.url),
-          imagesPublicIds: uploadedImages.map((image) => image.public_id),
+          images: uploadedImages.map((image) => ({
+            url: image.url,
+            public_id: image.public_id,
+          })),
         };
       })
     );
@@ -158,9 +160,9 @@ async function createProduct(req, res, next) {
   }
 }
 
+// for edit product  : not completed yet
 const deleteProductImage = async (req, res, next) => {
   const { publicId } = req.params;
-  console.log(publicId);
   try {
     const deletedImg = await cloudinary.uploader.destroy(publicId); // Delete image from Cloudinary
     if (!deletedImg) {
@@ -191,10 +193,11 @@ async function deleteProduct(req, res, next) {
     }
 
     // Collect all the publicIds from each variant
-    const allImagesPublicIds = productExist.variants.flatMap(
-      (variant) => variant.imagesPublicIds
+    const allImagesPublicIds = productExist.variants.flatMap((variant) =>
+      variant.images.map((image) => image.public_id)
     );
 
+    console.log(allImagesPublicIds);
     // Delete images from Cloudinary
     const deleteProductImages = allImagesPublicIds.map((publicId) => {
       return cloudinary.uploader.destroy(publicId);

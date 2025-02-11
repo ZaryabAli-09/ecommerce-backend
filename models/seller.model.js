@@ -35,22 +35,6 @@ const sellerSchema = new mongoose.Schema(
     },
     businessAddress: { type: String },
 
-    sizeCharts: [
-      {
-        chartCategory: String,
-        chartUrl: String,
-      },
-    ],
-
-    logo: {
-      url: {
-        type: String, // URL to cover image
-      },
-      public_id: {
-        type: String, // URL to cover image
-      },
-    },
-
     coverImage: {
       url: {
         type: String, // URL to cover image
@@ -107,6 +91,24 @@ const sellerSchema = new mongoose.Schema(
     resetPasswordTokenExpiresAt: {
       type: Date,
       default: null,
+    },
+
+    sizeCharts: [
+      {
+        chartCategory: String,
+        chartUrl: String,
+      },
+    ],
+
+    logo: {
+      url: {
+        type: String, // URL to cover image
+        default: null,
+      },
+      public_id: {
+        type: String, // URL to cover image
+        default: null,
+      },
     },
   },
   { timestamps: true }

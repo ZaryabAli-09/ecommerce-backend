@@ -25,13 +25,19 @@ const variantSchema = new mongoose.Schema({
     required: true,
     default: 0,
   },
-  images: {
-    type: [String],
-  },
-  imagesPublicIds: {
-    type: [String],
-    // required: [true, "Product images public id is required"],
-  },
+  images: [
+    {
+      url: String,
+      public_id: String,
+    },
+  ],
+  // images: {
+  //   type: [String],
+  // },
+  // imagesPublicIds: {
+  //   type: [String],
+  //   // required: [true, "Product images public id is required"],
+  // },
 });
 
 // Main Product Schema
