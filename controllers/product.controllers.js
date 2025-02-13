@@ -1,16 +1,10 @@
 import { Product } from "../models/product.model.js";
-import { uploadToCloudinary } from "../config/cloudinary.config.js";
 import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { v2 as cloudinary } from "cloudinary";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import mongoose from "mongoose";
-
-// Get the directory name from the current module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import crypto from "crypto";
 
 async function createProduct(req, res, next) {
   const sellerId = req.seller._id;
@@ -32,7 +26,9 @@ async function createProduct(req, res, next) {
     variants = variants.map((variant) => ({
       ...variant,
       discountedPrice:
-        variant.discountedPrice === "null" ? null : variant.discountedPrice,
+        variant.discountedPrice === "null" || 0 || ""
+          ? null
+          : variant.discountedPrice,
     }));
 
     // check if product with same name is already in db
@@ -40,22 +36,11 @@ async function createProduct(req, res, next) {
 
     // if product is already present in db then delete the images that is on our server uploaded by seller
     if (existingProduct) {
-      Object.values(req.files || {}).forEach((files) => {
-        if (Array.isArray(files)) {
-          files.forEach((file) => {
-            const filePath = path.join(__dirname, "../public", file.filename);
-            fs.unlink(filePath, (err) => {
-              if (err)
-                console.error(`Failed to delete image: ${filePath}`, err);
-            });
-          });
-        } else {
-          const filePath = path.join(__dirname, "../public", files.filename);
-          fs.unlink(filePath, (err) => {
-            if (err) console.error(`Failed to delete image: ${filePath}`, err);
-          });
-        }
-      });
+      await Promise.all(
+        Object.values(req.files)
+          .flat()
+          .map(({ path }) => fs.promises.unlink(path))
+      );
 
       // sending response if product already exists with same name and seller
       return res
@@ -67,47 +52,74 @@ async function createProduct(req, res, next) {
           )
         );
     }
+    // Track all unique images using a Map (hash -> cloudinary data)
+    const allImageFiles = [];
 
-    // Upload images to Cloudinary and associate them with the correct variant
-    const uploadedVariants = await Promise.all(
-      variants.map(async (variant, index) => {
-        // Filter files for this variant
-        const variantFiles = req.files?.[`variants[${index}][images]`];
+    // Collect all image files with their variant indexes
+    variants.forEach((_, index) => {
+      const variantFiles = req.files?.[`variants[${index}][images]`] || [];
+      const filesArray = Array.isArray(variantFiles)
+        ? variantFiles
+        : [variantFiles];
+      filesArray.forEach((file) => {
+        allImageFiles.push({
+          variantIndex: index,
+          file,
+        });
+      });
+    });
 
-        // Ensure variantFiles is an array
-        const localImagePaths = Array.isArray(variantFiles)
-          ? variantFiles.map((file) => file.path)
-          : variantFiles
-          ? [variantFiles.path]
-          : [];
-
-        const uploadedImages =
-          localImagePaths.length > 0
-            ? await uploadToCloudinary(localImagePaths)
-            : [];
-        // If there's an error uploading images, delete them from the server
-        if (localImagePaths.length > 0 && !uploadedImages) {
-          variantFiles.forEach((file) => {
-            const filePath = path.join(__dirname, "../public", file.filename);
-            fs.unlink(filePath, (err) => {
-              if (err)
-                console.error(`Failed to delete image: ${filePath}`, err);
-            });
-          });
-          throw new ApiError(400, "Error uploading images, please try again.");
+    // Generate hashes for all images
+    await Promise.all(
+      allImageFiles.map(async ({ file }) => {
+        if (!file.hash) {
+          const fileBuffer = await fs.promises.readFile(file.path);
+          file.hash = crypto
+            .createHash("sha256")
+            .update(fileBuffer)
+            .digest("hex");
         }
-
-        // Assign Cloudinary URLs and public IDs to the variant
-        return {
-          ...variant,
-          images: uploadedImages.map((image) => ({
-            url: image.url,
-            public_id: image.public_id,
-          })),
-        };
       })
     );
 
+    // Upload unique images to Cloudinary
+    const uniqueUploads = new Map();
+    for (const { file } of allImageFiles) {
+      if (!uniqueUploads.has(file.hash)) {
+        try {
+          const uploadResult = await cloudinary.uploader.upload(file.path, {
+            folder: "product-images",
+          });
+          uniqueUploads.set(file.hash, {
+            url: uploadResult.secure_url,
+            public_id: uploadResult.public_id,
+          });
+        } catch (error) {
+          // Cleanup uploaded images if any fail
+          await Promise.all(
+            [...uniqueUploads.values()].map((img) =>
+              cloudinary.uploader.destroy(img.public_id)
+            )
+          );
+          throw new ApiError(500, "Failed to upload images to Cloudinary");
+        }
+      }
+    }
+
+    // Map variants with image references
+    const uploadedVariants = variants.map((variant, index) => {
+      const variantFiles = allImageFiles
+        .filter((f) => f.variantIndex === index)
+        .map((f) => f.file);
+
+      return {
+        ...variant,
+        images: variantFiles.map((file) => ({
+          url: uniqueUploads.get(file.hash).url,
+          public_id: uniqueUploads.get(file.hash).public_id,
+        })),
+      };
+    });
     // Calculate total stock from variants
     const countInStock = variants.reduce(
       (acc, variant) => acc + Number(variant.stock || 0),
@@ -135,27 +147,24 @@ async function createProduct(req, res, next) {
 
     // saving product in db
     await newProduct.save();
+    // Cleanup temporary files
+    await Promise.all(
+      Object.values(req.files)
+        .flat()
+        .map(({ path }) => fs.promises.unlink(path))
+    );
 
     // sending success response after product successfully created
     return res
       .status(201)
       .json(new ApiResponse(newProduct, "Product created successfully."));
   } catch (error) {
-    Object.values(req.files || {}).forEach((files) => {
-      if (Array.isArray(files)) {
-        files.forEach((file) => {
-          const filePath = path.join(__dirname, "../public", file.filename);
-          fs.unlink(filePath, (err) => {
-            if (err) console.error(`Failed to delete image: ${filePath}`, err);
-          });
-        });
-      } else {
-        const filePath = path.join(__dirname, "../public", files.filename);
-        fs.unlink(filePath, (err) => {
-          if (err) console.error(`Failed to delete image: ${filePath}`, err);
-        });
-      }
-    });
+    await Promise.all(
+      Object.values(req.files)
+        .flat()
+        .map(({ path }) => fs.promises.unlink(path))
+    );
+
     next(error);
   }
 }
