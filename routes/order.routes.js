@@ -3,26 +3,23 @@ import { verifyAdmin } from "../middlwares/verifyAdmin.js";
 import {
   newOrder,
   myOrders,
-  getSingleOrder,
   allOrders,
-  updateOrder,
-  deleteOrder,
+  fetchSellerOrders,
+  updateOrderStatus,
+  getOrderDetails,
 } from "../controllers/order.controllers.js";
 import { verifyUser } from "../middlwares/verifyUser.js";
+import { verifySeller } from "../middlwares/verifySeller.js";
 
 const router = express.Router();
 
 router.post("/new", verifyUser, newOrder);
-
 router.get("/my", verifyUser, myOrders);
 
-router.get("/single/:orderId", verifyUser, getSingleOrder);
+router.get("/seller-orders", verifySeller, fetchSellerOrders);
+router.get("/:orderId", verifySeller, getOrderDetails);
+router.patch("/update-status/:orderId", verifySeller, updateOrderStatus);
 
-// admin routes
 router.get("/all", verifyAdmin, allOrders);
-
-router.put("/update/:orderId", verifyAdmin, updateOrder);
-
-router.delete("/delete/:orderId", verifyAdmin, deleteOrder);
 
 export default router;

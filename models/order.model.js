@@ -1,5 +1,39 @@
 import mongoose from "mongoose";
 
+const orderItemSchema = new mongoose.Schema({
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Product",
+    required: true,
+  },
+  variantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+  },
+  quantity: {
+    type: Number,
+    required: true,
+  },
+});
+
+const subOrderSchema = new mongoose.Schema({
+  seller: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Seller",
+    required: true,
+  },
+  orderItems: [orderItemSchema], // Items from this seller
+  totalAmount: {
+    type: Number,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "shipped", "delivered", "canceled"],
+    default: "pending",
+  },
+});
+
 const orderSchema = new mongoose.Schema(
   {
     orderBy: {
@@ -7,18 +41,7 @@ const orderSchema = new mongoose.Schema(
       ref: "Buyer",
     },
 
-    orderItems: [
-      {
-        product: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Product",
-        },
-        quantity: {
-          type: Number,
-          required: true,
-        },
-      },
-    ],
+    subOrders: [subOrderSchema],
 
     totalAmount: {
       type: Number,
@@ -37,9 +60,16 @@ const orderSchema = new mongoose.Schema(
       paymentDate: { type: Date }, // When payment was made
     },
 
+    // Overall order status (aggregated from sub-orders)
     orderStatus: {
       type: String,
-      enum: ["pending", "shipped", "delivered", "canceled"],
+      enum: [
+        "pending",
+        "partially shipped",
+        "shipped",
+        "delivered",
+        "canceled",
+      ],
       default: "pending",
     },
 
