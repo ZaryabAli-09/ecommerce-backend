@@ -2,19 +2,17 @@ import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+
 async function newOrder(req, res, next) {
   try {
     const userId = req.buyer._id;
 
-    const { orderItems, totalAmount, paymentMethod, shippingAddress } =
-      req.body;
+    let { orderItems, totalAmount, paymentMethod, shippingAddress } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
       throw new ApiError(400, "Order items cannot be empty.");
     }
-    if (!totalAmount) {
-      throw new ApiError(400, "Total amount is required.");
-    }
+
     if (!paymentMethod) {
       throw new ApiError(400, "Payment method is required.");
     }
@@ -25,14 +23,14 @@ async function newOrder(req, res, next) {
     const { street, city, state, country, postalCode } = shippingAddress;
 
     if (!street || !city || !state || !postalCode || !country) {
-      throw new ApiError(400, "Please complete shipping adresss.");
+      throw new ApiError(400, "Please complete shipping address.");
     }
 
     // Populate the product field for each order item
     const populatedOrderItems = await Promise.all(
       orderItems.map(async (item) => {
         const product = await Product.findById(item.product)
-          .select("price seller variants")
+          .select("seller variants")
           .exec();
 
         // Check if product exists
@@ -60,14 +58,15 @@ async function newOrder(req, res, next) {
           ...item,
           product: {
             _id: product._id,
-            price: selectedVariant.discountedPrice || selectedVariant.price, // Use the price from the selected variant if discounted price is not null then discounted price will be pick else general price
+            price: selectedVariant.price,
+            discountedPrice: selectedVariant.discountedPrice || null, // Use discountedPrice if available
             seller: product.seller,
           },
         };
       })
     );
 
-    //  Group items by seller
+    // Group items by seller
     const itemsBySeller = populatedOrderItems.reduce((acc, item) => {
       const sellerId = item.product.seller; // Access seller from populated product
       if (!acc[sellerId]) {
@@ -83,14 +82,16 @@ async function newOrder(req, res, next) {
 
       // Calculate subOrderTotal
       const subOrderTotal = sellerItems.reduce((sum, item) => {
-        // If discountedPrice is not null then the total will be sum of discounted price else general price
-        const itemTotal =
-          item.product.discountedPrice || item.product.price * item.quantity;
+        // Use discountedPrice if it exists and is greater than 0, otherwise use price
+        const itemPrice =
+          item.product.discountedPrice > 0
+            ? item.product.discountedPrice
+            : item.product.price;
+        const itemTotal = itemPrice * item.quantity;
+
         if (isNaN(itemTotal)) {
           throw new Error(
-            `Invalid calculation for product: ${item.product._id}. Price: ${
-              item.product.discountedPrice || item.product.price
-            }, Quantity: ${item.quantity}`
+            `Invalid calculation for product: ${item.product._id}. Price: ${itemPrice}, Quantity: ${item.quantity}`
           );
         }
         return sum + itemTotal;
@@ -104,11 +105,17 @@ async function newOrder(req, res, next) {
       };
     });
 
+    // Calculate the total amount for the entire order
+    const overallTotalAmount = subOrders.reduce(
+      (sum, subOrder) => sum + subOrder.totalAmount,
+      0
+    );
+
     // Step 4: Create the order
     const newOrder = new Order({
       orderBy: userId,
       subOrders,
-      totalAmount,
+      totalAmount: overallTotalAmount, // Use the calculated overall total amount
       paymentMethod,
       shippingAddress,
     });
@@ -132,8 +139,7 @@ const fetchSellerOrders = async (req, res, next) => {
     // need enhancement ........
     const orders = await Order.find({ "subOrders.seller": sellerId })
       .populate("orderBy", "name email") // Populate buyer details
-      .populate("subOrders.orderItems.product", "name price") // Populate product details
-      .populate("subOrders.orderItems.product.variant") // Populate product details
+      .populate("subOrders.orderItems.product", "name price variant") // Populate product details
       .exec();
 
     if (!orders || orders.length === 0) {
@@ -153,6 +159,8 @@ const updateOrderStatus = async (req, res, next) => {
     const { orderId } = req.params;
     const { status } = req.body;
     const sellerId = req.seller._id; // Assuming seller is authenticated
+
+    console.log("hit");
 
     // Validate status
     const validStatuses = ["pending", "shipped", "delivered", "canceled"];
@@ -192,6 +200,7 @@ const updateOrderStatus = async (req, res, next) => {
 };
 
 // Helper function to calculate overall order status
+// nned to be enhanced
 const calculateOverallStatus = (subOrders) => {
   if (subOrders.every((subOrder) => subOrder.status === "delivered")) {
     return "delivered";
