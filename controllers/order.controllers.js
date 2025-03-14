@@ -2,7 +2,8 @@ import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
-
+import sendEmail from "../utils/sendEmail.js";
+import { Seller } from "../models/seller.model.js";
 async function newOrder(req, res, next) {
   try {
     const userId = req.buyer._id;
@@ -122,6 +123,31 @@ async function newOrder(req, res, next) {
 
     const order = await newOrder.save();
 
+    // Notify the buyer about the new order
+    await sendEmail(
+      process.env.SMTP_GMAIL_USER,
+      req.buyer.email, // Assuming buyer email is available in req.buyer
+      "Order Placed Successfully",
+      `Your order (ID: ${order._id}) has been placed successfully. Total amount: $${order.totalAmount}.`
+    );
+
+    // Notify each seller about the new order
+    await Promise.all(
+      subOrders.map(async (subOrder) => {
+        const seller = await Seller.findById(subOrder.seller)
+          .select("email")
+          .exec();
+        if (seller) {
+          await sendEmail(
+            process.env.SMTP_GMAIL_USER,
+            seller.email,
+            "New Order Received",
+            `You have received a new order (ID: ${order._id}) with a total amount of $${subOrder.totalAmount}.`
+          );
+        }
+      })
+    );
+
     return res
       .status(200)
       .json(new ApiResponse(order, "Order placed successfully."));
@@ -130,6 +156,64 @@ async function newOrder(req, res, next) {
   }
 }
 
+const updateOrderStatus = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+    const sellerId = req.seller._id; // Assuming seller is authenticated
+
+    // Validate status
+    const validStatuses = ["pending", "shipped", "delivered", "canceled"];
+    if (!validStatuses.includes(status)) {
+      throw new ApiError(400, "Invalid status.");
+    }
+
+    // Find the order and the specific sub-order for the seller
+    const order = await Order.findOne({
+      _id: orderId,
+      "subOrders.seller": sellerId,
+    }).populate("orderBy", "email"); // Populate buyer details
+
+    if (!order) {
+      throw new ApiError(404, "Order not found.");
+    }
+
+    // Update the status of the sub-order
+    order.subOrders = order.subOrders.map((subOrder) => {
+      if (subOrder.seller.toString() === sellerId.toString()) {
+        subOrder.status = status;
+      }
+      return subOrder;
+    });
+
+    // Recalculate the overall order status
+    order.orderStatus = calculateOverallStatus(order.subOrders);
+
+    await order.save();
+
+    // Notify the buyer about the status update
+    await sendEmail(
+      process.env.SMTP_GMAIL_USER,
+      order.orderBy.email,
+      "Order Status Updated",
+      `Your order (ID: ${order._id}) status has been updated to: ${status}.`
+    );
+
+    // Notify the seller about the status update
+    await sendEmail(
+      process.env.SMTP_GMAIL_USER,
+      req.seller.email, // Assuming seller email is available in req.seller
+      "Order Status Updated",
+      `The status of order (ID: ${order._id}) has been updated to: ${status}.`
+    );
+
+    return res
+      .status(200)
+      .json(new ApiResponse(order, "Order status updated successfully."));
+  } catch (error) {
+    next(error);
+  }
+};
 const fetchSellerOrders = async (req, res, next) => {
   try {
     const sellerId = req.seller._id; // Assuming seller is authenticated
@@ -149,51 +233,6 @@ const fetchSellerOrders = async (req, res, next) => {
     return res
       .status(200)
       .json(new ApiResponse(orders, "Orders fetched successfully."));
-  } catch (error) {
-    next(error);
-  }
-};
-
-const updateOrderStatus = async (req, res, next) => {
-  try {
-    const { orderId } = req.params;
-    const { status } = req.body;
-    const sellerId = req.seller._id; // Assuming seller is authenticated
-
-    console.log("hit");
-
-    // Validate status
-    const validStatuses = ["pending", "shipped", "delivered", "canceled"];
-    if (!validStatuses.includes(status)) {
-      throw new ApiError(400, "Invalid status.");
-    }
-
-    // Find the order and the specific sub-order for the seller
-    const order = await Order.findOne({
-      _id: orderId,
-      "subOrders.seller": sellerId,
-    });
-
-    if (!order) {
-      throw new ApiError(404, "Order not found.");
-    }
-
-    // Update the status of the sub-order
-    order.subOrders = order.subOrders.map((subOrder) => {
-      if (subOrder.seller.toString() === sellerId.toString()) {
-        subOrder.status = status;
-      }
-      return subOrder;
-    });
-
-    // Recalculate the overall order status
-    order.orderStatus = calculateOverallStatus(order.subOrders);
-
-    await order.save();
-
-    return res
-      .status(200)
-      .json(new ApiResponse(order, "Order status updated successfully."));
   } catch (error) {
     next(error);
   }

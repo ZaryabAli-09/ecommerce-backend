@@ -6,6 +6,7 @@ import {
   deleteSeller,
   getAllSellers,
   getSingleSeller,
+  sellerDashboardInformation,
   updateSeller,
   uploadImage,
 } from "../controllers/seller.controllers.js";
@@ -23,7 +24,7 @@ const handleImageType = (type) => (req, res, next) => {
 // ... change middleware to  verifyAdmin after testing
 router.get("/all", verifyUser, getAllSellers);
 router.delete("/delete/:sellerId", verifyAdmin, deleteSeller);
-
+router.get("/dashboard-information/:sellerId", sellerDashboardInformation);
 // Buyer routes
 router.get("/single/:sellerId", verifySeller, getSingleSeller);
 router.put("/update/:sellerId", verifySeller, updateSeller);

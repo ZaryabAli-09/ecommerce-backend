@@ -7,6 +7,8 @@ import { uploadSingleImageToCloudinary } from "../config/cloudinary.config.js";
 import { v2 as cloudinary } from "cloudinary";
 import { fileURLToPath } from "url";
 import path from "path";
+import { Product } from "../models/product.model.js";
+import { Order } from "../models/order.model.js";
 
 // Get the directory name from the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -222,7 +224,161 @@ const uploadImage = async (req, res, next) => {
   }
 };
 
+const sellerDashboardInformation = async (req, res) => {
+  try {
+    const sellerId = req.params.sellerId;
+
+    const products = await Product.find({ seller: sellerId }).populate(
+      "categories",
+      "name"
+    ); // Populate 'categories' and select only 'name
+
+    const orders = await Order.find({ "subOrders.seller": sellerId });
+
+    // Filter sub-orders to include only the seller's sub-orders
+    const sellerSubOrders = orders.flatMap((order) =>
+      order.subOrders
+        .filter((subOrder) => subOrder.seller.toString() === sellerId)
+        .map((subOrder) => ({
+          ...subOrder.toObject(), // Convert Mongoose document to plain object
+          orderId: order._id, // Include the parent order ID
+          orderBy: order.orderBy, // Include the customer details
+          orderAt: order.createdAt,
+        }))
+    );
+
+    // Calculate total sales by summing up the totalAmount of all sub-orders
+    const totalSellerSales = sellerSubOrders.reduce(
+      (total, subOrder) => total + subOrder.totalAmount,
+      0
+    );
+
+    // Calculate total number of customers (unique customers who placed orders)
+    const uniqueCustomers = new Set(
+      orders.map((order) => order.orderBy.toString())
+    );
+    const totalSellerCustomers = uniqueCustomers.size;
+
+    // Calculate number of products and orders
+    const totalSellerOrders = orders.length;
+    const totalSellerProduct = products.length;
+
+    // Extract data for charts
+    const salesDataArray = extractSalesData(sellerSubOrders);
+    const productDataArray = extractProductData(sellerSubOrders, products);
+    const orderStatusDataArray = extractOrderStatusData(sellerSubOrders);
+    const userActivityDataArray = extractUserActivityData(orders);
+    const productCategoryDataArray = extractProductCategoryData(
+      sellerSubOrders,
+      products
+    );
+
+    res.json({
+      totalSellerProduct,
+      totalSellerOrders,
+      totalSellerCustomers,
+      totalSellerSales,
+      salesDataArray,
+      productDataArray,
+      orderStatusDataArray,
+      userActivityDataArray,
+      productCategoryDataArray,
+      sellerSubOrders,
+    });
+    // Find all customer
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+//Helper functions for data extraction
+const extractSalesData = (sellerSubOrders) => {
+  const salesData = sellerSubOrders.reduce((acc, subOrder) => {
+    const month = new Date(subOrder.orderAt).toLocaleString("default", {
+      month: "short",
+    });
+    acc[month] = (acc[month] || 0) + subOrder.totalAmount;
+    return acc;
+  }, {});
+  return Object.keys(salesData).map((month) => ({
+    name: month,
+    sales: salesData[month],
+  }));
+};
+
+const extractProductData = (sellerSubOrders, products) => {
+  const productSales = sellerSubOrders.reduce((acc, subOrder) => {
+    subOrder.orderItems.forEach((item) => {
+      const product = products.find(
+        (p) => p._id.toString() === item.product.toString()
+      );
+
+      if (product) {
+        acc[product.name] = (acc[product.name] || 0) + item.quantity;
+      }
+    });
+    return acc;
+  }, {});
+  return Object.keys(productSales).map((productName) => ({
+    name: productName,
+    sales: productSales[productName],
+  }));
+};
+
+const extractOrderStatusData = (sellerSubOrders) => {
+  const orderStatusCounts = sellerSubOrders.reduce((acc, subOrder) => {
+    acc[subOrder.status] = (acc[subOrder.status] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.keys(orderStatusCounts).map((status) => ({
+    name: status,
+    value: orderStatusCounts[status],
+  }));
+};
+
+const extractUserActivityData = (orders) => {
+  const userActivityData = orders.reduce((acc, order) => {
+    const month = new Date(order.createdAt).toLocaleString("default", {
+      month: "short",
+    });
+    acc[month] = acc[month] || new Set();
+    acc[month].add(order.orderBy.toString());
+    return acc;
+  }, {});
+  return Object.keys(userActivityData).map((month) => ({
+    name: month,
+    activeUsers: userActivityData[month].size,
+  }));
+};
+
+const extractProductCategoryData = (sellerSubOrders, products) => {
+  const categorySales = sellerSubOrders.reduce((acc, subOrder) => {
+    subOrder.orderItems.forEach((item) => {
+      const product = products.find(
+        (p) => p._id.toString() === item.product.toString()
+      );
+
+      if (product) {
+        // Merge category names into a single string (e.g., "Men > Topwear > T-shirts")
+        const mergedCategory = product.categories
+          .map((c) => c.name) // Extract category names
+          .join(" > "); // Join with " > " separator
+
+        // Accumulate the quantity for the merged category
+        acc[mergedCategory] = (acc[mergedCategory] || 0) + item.quantity;
+      }
+    });
+    return acc;
+  }, {});
+
+  // Convert to array format for Recharts
+  return Object.keys(categorySales).map((category) => ({
+    name: category,
+    value: categorySales[category],
+  }));
+};
 export {
+  sellerDashboardInformation,
   getAllSellers,
   getSingleSeller,
   updateSeller,
