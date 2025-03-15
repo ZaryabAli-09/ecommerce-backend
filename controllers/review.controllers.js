@@ -81,7 +81,6 @@ async function getReviews(req, res, next) {
     next(error);
   }
 }
-
 async function deleteReview(req, res, next) {
   try {
     const { reviewId } = req.params;
@@ -122,4 +121,72 @@ async function deleteReview(req, res, next) {
   }
 }
 
-export { addReview, deleteReview, getReviews };
+async function getSellerReviews(req, res, next) {
+  try {
+    const { sellerId } = req.params;
+
+    const reviews = await Review.find()
+      .populate("product", "name images seller")
+      .populate("user", "name");
+
+    // Filter to get only reviews related to the seller
+    const sellerReviews = reviews.filter(
+      (review) => review.product.seller.toString() === sellerId
+    );
+
+    if (sellerReviews.length === 0) {
+      throw new ApiError(404, "No reviews found for seller.");
+    }
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(sellerReviews, "Seller reviews fetched successfully")
+      );
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function sellerReplyToReview(req, res, next) {
+  try {
+    const { text } = req.body;
+    const sellerId = req.seller._id; // Get seller ID from authentication
+    const { reviewId } = req.params;
+
+    console.log(reviewId);
+
+    const review = await Review.findById(reviewId);
+    console.log(review);
+
+    // Check if the seller owns the product being reviewed
+    const product = await Product.findById(review.product);
+    if (product.seller.toString() !== sellerId.toString()) {
+      throw new ApiError(403, "Unauthorized access.");
+    }
+
+    console.log(product);
+    if (!review) {
+      throw new ApiError(404, "No review found.");
+    }
+
+    review.sellerReply = {
+      text,
+      seller: sellerId,
+      replyDate: new Date(),
+    };
+    await review.save();
+
+    res.status(201).json(new ApiResponse(null, "Replied successfully."));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export {
+  addReview,
+  deleteReview,
+  getReviews,
+  getSellerReviews,
+  sellerReplyToReview,
+};

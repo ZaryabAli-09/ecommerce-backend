@@ -25,6 +25,15 @@ const reviewSchema = new mongoose.Schema(
       ref: "Product",
       required: true, // Ensures every review is linked to a product
     },
+    sellerReply: {
+      text: { type: String, default: null }, // Default should be applied inside the field definition
+      replyDate: { type: Date, default: null },
+      seller: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Seller",
+        default: null, // Default should be explicitly set here
+      },
+    },
   },
   { timestamps: true } // Automatically handles createdAt and updatedAt timestamps
 );
