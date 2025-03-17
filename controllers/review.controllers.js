@@ -154,10 +154,7 @@ async function sellerReplyToReview(req, res, next) {
     const sellerId = req.seller._id; // Get seller ID from authentication
     const { reviewId } = req.params;
 
-    console.log(reviewId);
-
     const review = await Review.findById(reviewId);
-    console.log(review);
 
     // Check if the seller owns the product being reviewed
     const product = await Product.findById(review.product);
@@ -165,7 +162,6 @@ async function sellerReplyToReview(req, res, next) {
       throw new ApiError(403, "Unauthorized access.");
     }
 
-    console.log(product);
     if (!review) {
       throw new ApiError(404, "No review found.");
     }
