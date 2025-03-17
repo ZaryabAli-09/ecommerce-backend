@@ -272,6 +272,8 @@ const sellerDashboardInformation = async (req, res) => {
       sellerSubOrders,
       products
     );
+    const totalSellerProductCategories =
+      extractTotalSellerProductCategoryData(products);
 
     res.json({
       totalSellerProduct,
@@ -283,6 +285,7 @@ const sellerDashboardInformation = async (req, res) => {
       orderStatusDataArray,
       userActivityDataArray,
       productCategoryDataArray,
+      totalSellerProductCategories,
       sellerSubOrders,
     });
     // Find all customer
@@ -349,6 +352,28 @@ const extractUserActivityData = (orders) => {
     name: month,
     activeUsers: userActivityData[month].size,
   }));
+};
+
+const extractTotalSellerProductCategoryData = (sellerProducts) => {
+  const categorySales = sellerProducts.reduce((acc, product) => {
+    // Merge category names into a single string (e.g., "Men > Topwear > T-shirts")
+    const mergedCategory = product.categories
+      .map((c) => c.name) // Extract category names
+      .join(" > "); // Join with " > " separator
+
+    // Accumulate the quantity for the merged category
+    acc[mergedCategory] = (acc[mergedCategory] || 0) + 1; // Count each product in the category
+
+    return acc;
+  }, {});
+
+  // Convert the accumulated object into an array of objects for PieChart
+  const result = Object.keys(categorySales).map((category) => ({
+    name: category, // Use "name" for the category label
+    value: categorySales[category], // Use "value" for the count
+  }));
+
+  return result;
 };
 
 const extractProductCategoryData = (sellerSubOrders, products) => {
