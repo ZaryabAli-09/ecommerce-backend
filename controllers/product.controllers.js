@@ -281,20 +281,91 @@ async function updateProduct(req, res, next) {
 async function getSellerProducts(req, res, next) {
   try {
     const sellerId = req.seller._id;
-    const products = await Product.find({ seller: sellerId }).populate(
-      "categories",
-      "name"
-    ); // Populate 'categories' and select only 'name
+    const { page, limit, name, minPrice, maxPrice, stock, minSold, dummy } =
+      req.query;
+
+    // Check if dummy data is requested
+    if (dummy === "true") {
+      const dummyProducts = generateDummyProducts(40); // Generate 10 dummy products
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            dummyProducts,
+            "Dummy products retrieved successfully."
+          )
+        );
+    }
+
+    const query = { seller: sellerId };
+
+    // Add filters to the query
+    if (name) query.name = { $regex: name, $options: "i" }; // Case-insensitive search
+    if (minPrice) query["variants.price"] = { $gte: Number(minPrice) };
+    if (maxPrice)
+      query["variants.price"] = {
+        ...query["variants.price"],
+        $lte: Number(maxPrice),
+      };
+    if (stock) query.countInStock = { $gte: Number(stock) };
+    if (minSold) query.sold = { $gte: Number(minSold) };
+
+    let products;
+    if (page && limit) {
+      // Apply pagination if page and limit are provided
+      const skip = (page - 1) * limit;
+      products = await Product.find(query)
+        .populate("categories", "name")
+        .skip(skip)
+        .limit(Number(limit));
+    } else {
+      // Fetch all products without pagination
+      products = await Product.find(query).populate("categories", "name");
+    }
 
     res
       .status(200)
       .json(
-        new ApiResponse(products, "Seller products retrived successfully.")
+        new ApiResponse(products, "Seller products retrieved successfully.")
       );
   } catch (error) {
-    S;
     next(error);
   }
+}
+
+// Function to generate dummy products
+function generateDummyProducts(count) {
+  const dummyProducts = [];
+  for (let i = 1; i <= count; i++) {
+    dummyProducts.push({
+      _id: `dummy${i}`,
+      name: `Product ${i}`,
+      description: `Description for Product ${i}`,
+      countInStock: Math.floor(Math.random() * 100), // Random stock between 0 and 100
+      sold: Math.floor(Math.random() * 50), // Random sold count between 0 and 50
+      categories: [
+        { _id: `category${i}`, name: `Category ${i}` },
+        { _id: `category${i + 1}`, name: `Category ${i + 1}` },
+        { _id: `category${i + 1}`, name: `Category ${i + 1}` },
+      ],
+      variants: [
+        {
+          size: "M",
+          color: "Red",
+          discountedPrice: Math.floor(Math.random() * 100) + 50,
+          price: Math.floor(Math.random() * 100) + 50,
+          stock: Math.floor(Math.random() * 100),
+          images: [
+            {
+              url: `https://via.placeholder.com/150?text=Product+${i}`,
+              public_id: `dummy${i}`,
+            },
+          ],
+        },
+      ],
+    });
+  }
+  return dummyProducts;
 }
 
 async function getSingleProduct(req, res, next) {

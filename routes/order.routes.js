@@ -1,9 +1,9 @@
 import express from "express";
-import { verifyAdmin } from "../middlwares/verifyAdmin.js";
+// import { verifyAdmin } from "../middlwares/verifyAdmin.js";
 import {
   newOrder,
-  myOrders,
-  allOrders,
+  // myOrders,
+  // allOrders,
   fetchSellerOrders,
   updateOrderStatus,
   getOrderDetails,
@@ -14,12 +14,11 @@ import { verifySeller } from "../middlwares/verifySeller.js";
 const router = express.Router();
 
 router.post("/new", verifyUser, newOrder);
-router.get("/my", verifyUser, myOrders);
 
 router.get("/seller-orders", verifySeller, fetchSellerOrders);
 router.get("/:orderId", verifySeller, getOrderDetails);
 router.patch("/update-status/:orderId", verifySeller, updateOrderStatus);
 
-router.get("/all", verifyAdmin, allOrders);
-
+// router.get("/all", verifyAdmin, allOrders);
+// router.get("/my", verifyUser, myOrders);
 export default router;

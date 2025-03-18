@@ -228,34 +228,26 @@ const sellerDashboardInformation = async (req, res) => {
   try {
     const sellerId = req.params.sellerId;
 
+    // Fetch products and orders for the seller
     const products = await Product.find({ seller: sellerId }).populate(
       "categories",
       "name"
-    ); // Populate 'categories' and select only 'name
+    ); // Populate 'categories' and select only 'name'
 
-    const orders = await Order.find({ "subOrders.seller": sellerId });
+    const orders = await Order.find({ seller: sellerId }).populate(
+      "orderBy",
+      "name email"
+    ); // Populate buyer details
 
-    // Filter sub-orders to include only the seller's sub-orders
-    const sellerSubOrders = orders.flatMap((order) =>
-      order.subOrders
-        .filter((subOrder) => subOrder.seller.toString() === sellerId)
-        .map((subOrder) => ({
-          ...subOrder.toObject(), // Convert Mongoose document to plain object
-          orderId: order._id, // Include the parent order ID
-          orderBy: order.orderBy, // Include the customer details
-          orderAt: order.createdAt,
-        }))
-    );
-
-    // Calculate total sales by summing up the totalAmount of all sub-orders
-    const totalSellerSales = sellerSubOrders.reduce(
-      (total, subOrder) => total + subOrder.totalAmount,
+    // Calculate total sales by summing up the totalAmount of all orders
+    const totalSellerSales = orders.reduce(
+      (total, order) => total + order.totalAmount,
       0
     );
 
     // Calculate total number of customers (unique customers who placed orders)
     const uniqueCustomers = new Set(
-      orders.map((order) => order.orderBy.toString())
+      orders.map((order) => order.orderBy._id.toString())
     );
     const totalSellerCustomers = uniqueCustomers.size;
 
@@ -264,12 +256,12 @@ const sellerDashboardInformation = async (req, res) => {
     const totalSellerProduct = products.length;
 
     // Extract data for charts
-    const salesDataArray = extractSalesData(sellerSubOrders);
-    const productDataArray = extractProductData(sellerSubOrders, products);
-    const orderStatusDataArray = extractOrderStatusData(sellerSubOrders);
+    const salesDataArray = extractSalesData(orders);
+    const productDataArray = extractProductData(orders, products);
+    const orderStatusDataArray = extractOrderStatusData(orders);
     const userActivityDataArray = extractUserActivityData(orders);
     const productCategoryDataArray = extractProductCategoryData(
-      sellerSubOrders,
+      orders,
       products
     );
     const totalSellerProductCategories =
@@ -286,21 +278,21 @@ const sellerDashboardInformation = async (req, res) => {
       userActivityDataArray,
       productCategoryDataArray,
       totalSellerProductCategories,
-      sellerSubOrders,
+      orders, // Return orders directly (no suborders)
     });
-    // Find all customer
   } catch (error) {
     console.log(error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
 //Helper functions for data extraction
-const extractSalesData = (sellerSubOrders) => {
-  const salesData = sellerSubOrders.reduce((acc, subOrder) => {
-    const month = new Date(subOrder.orderAt).toLocaleString("default", {
+const extractSalesData = (orders) => {
+  const salesData = orders.reduce((acc, order) => {
+    const month = new Date(order.createdAt).toLocaleString("default", {
       month: "short",
     });
-    acc[month] = (acc[month] || 0) + subOrder.totalAmount;
+    acc[month] = (acc[month] || 0) + order.totalAmount;
     return acc;
   }, {});
   return Object.keys(salesData).map((month) => ({
@@ -309,13 +301,12 @@ const extractSalesData = (sellerSubOrders) => {
   }));
 };
 
-const extractProductData = (sellerSubOrders, products) => {
-  const productSales = sellerSubOrders.reduce((acc, subOrder) => {
-    subOrder.orderItems.forEach((item) => {
+const extractProductData = (orders, products) => {
+  const productSales = orders.reduce((acc, order) => {
+    order.orderItems.forEach((item) => {
       const product = products.find(
         (p) => p._id.toString() === item.product.toString()
       );
-
       if (product) {
         acc[product.name] = (acc[product.name] || 0) + item.quantity;
       }
@@ -327,10 +318,9 @@ const extractProductData = (sellerSubOrders, products) => {
     sales: productSales[productName],
   }));
 };
-
-const extractOrderStatusData = (sellerSubOrders) => {
-  const orderStatusCounts = sellerSubOrders.reduce((acc, subOrder) => {
-    acc[subOrder.status] = (acc[subOrder.status] || 0) + 1;
+const extractOrderStatusData = (orders) => {
+  const orderStatusCounts = orders.reduce((acc, order) => {
+    acc[order.status] = (acc[order.status] || 0) + 1;
     return acc;
   }, {});
   return Object.keys(orderStatusCounts).map((status) => ({
@@ -338,14 +328,13 @@ const extractOrderStatusData = (sellerSubOrders) => {
     value: orderStatusCounts[status],
   }));
 };
-
 const extractUserActivityData = (orders) => {
   const userActivityData = orders.reduce((acc, order) => {
     const month = new Date(order.createdAt).toLocaleString("default", {
       month: "short",
     });
     acc[month] = acc[month] || new Set();
-    acc[month].add(order.orderBy.toString());
+    acc[month].add(order.orderBy._id.toString());
     return acc;
   }, {});
   return Object.keys(userActivityData).map((month) => ({
@@ -356,47 +345,35 @@ const extractUserActivityData = (orders) => {
 
 const extractTotalSellerProductCategoryData = (sellerProducts) => {
   const categorySales = sellerProducts.reduce((acc, product) => {
-    // Merge category names into a single string (e.g., "Men > Topwear > T-shirts")
     const mergedCategory = product.categories
       .map((c) => c.name) // Extract category names
       .join(" > "); // Join with " > " separator
-
-    // Accumulate the quantity for the merged category
     acc[mergedCategory] = (acc[mergedCategory] || 0) + 1; // Count each product in the category
-
     return acc;
   }, {});
 
-  // Convert the accumulated object into an array of objects for PieChart
-  const result = Object.keys(categorySales).map((category) => ({
-    name: category, // Use "name" for the category label
-    value: categorySales[category], // Use "value" for the count
+  return Object.keys(categorySales).map((category) => ({
+    name: category,
+    value: categorySales[category],
   }));
-
-  return result;
 };
 
-const extractProductCategoryData = (sellerSubOrders, products) => {
-  const categorySales = sellerSubOrders.reduce((acc, subOrder) => {
-    subOrder.orderItems.forEach((item) => {
+const extractProductCategoryData = (orders, products) => {
+  const categorySales = orders.reduce((acc, order) => {
+    order.orderItems.forEach((item) => {
       const product = products.find(
         (p) => p._id.toString() === item.product.toString()
       );
-
       if (product) {
-        // Merge category names into a single string (e.g., "Men > Topwear > T-shirts")
         const mergedCategory = product.categories
           .map((c) => c.name) // Extract category names
           .join(" > "); // Join with " > " separator
-
-        // Accumulate the quantity for the merged category
         acc[mergedCategory] = (acc[mergedCategory] || 0) + item.quantity;
       }
     });
     return acc;
   }, {});
 
-  // Convert to array format for Recharts
   return Object.keys(categorySales).map((category) => ({
     name: category,
     value: categorySales[category],
