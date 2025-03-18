@@ -7,9 +7,8 @@ import { Seller } from "../models/seller.model.js";
 
 async function newOrder(req, res, next) {
   try {
-    const userId = req.buyer._id;
     let { orderItems, paymentMethod, shippingAddress } = req.body;
-
+    const userId = req.buyer._id;
     // Validate inputs
     if (!orderItems || orderItems.length === 0) {
       throw new ApiError(400, "Order items cannot be empty.");

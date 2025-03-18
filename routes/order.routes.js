@@ -13,7 +13,7 @@ import { verifySeller } from "../middlwares/verifySeller.js";
 
 const router = express.Router();
 
-router.post("/new", verifyUser, newOrder);
+router.post("/new", newOrder);
 
 router.get("/seller-orders", verifySeller, fetchSellerOrders);
 router.get("/:orderId", verifySeller, getOrderDetails);
