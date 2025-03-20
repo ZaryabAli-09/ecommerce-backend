@@ -121,32 +121,107 @@ async function deleteReview(req, res, next) {
   }
 }
 
-async function getSellerReviews(req, res, next) {
+const getSellerReviews = async (req, res, next) => {
   try {
     const { sellerId } = req.params;
+    const {
+      page = 1, // Default page is 1
+      limit = 10, // Default limit is 10
+      replyStatus, // "replied", "not replied"
+      dateFilter, // "thisWeek", "thisMonth", "lastMonth"
+    } = req.query;
 
-    const reviews = await Review.find()
-      .populate("product", "name images seller")
-      .populate("user", "name");
+    // Base query to fetch reviews
+    const query = {};
 
-    // Filter to get only reviews related to the seller
-    const sellerReviews = reviews.filter(
-      (review) => review.product.seller.toString() === sellerId
-    );
-
-    if (sellerReviews.length === 0) {
-      throw new ApiError(404, "No reviews found for seller.");
+    // Filter by reply status
+    if (replyStatus === "replied") {
+      query["sellerReply.text"] = { $exists: true, $ne: null };
+    } else if (replyStatus === "not replied") {
+      query["sellerReply.text"] = { $exists: false };
     }
 
-    res
-      .status(200)
-      .json(
-        new ApiResponse(sellerReviews, "Seller reviews fetched successfully")
-      );
+    // Date filtering logic
+    if (dateFilter) {
+      const currentDate = new Date();
+      let startDate, endDate;
+
+      switch (dateFilter) {
+        case "thisWeek":
+          startDate = new Date(
+            currentDate.setDate(currentDate.getDate() - currentDate.getDay())
+          );
+          endDate = new Date(currentDate.setDate(currentDate.getDate() + 6));
+          break;
+        case "thisMonth":
+          startDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth(),
+            1
+          );
+          endDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() + 1,
+            0
+          );
+          break;
+        case "lastMonth":
+          startDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() - 1,
+            1
+          );
+          endDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth(),
+            0
+          );
+          break;
+        default:
+          break;
+      }
+
+      if (startDate && endDate) {
+        query.createdAt = { $gte: startDate, $lte: endDate };
+      }
+    }
+
+    // Get the total count of reviews matching the query
+    const total = await Review.countDocuments(query);
+
+    // Pagination logic
+    const skip = (page - 1) * limit;
+    const reviews = await Review.find(query)
+      .populate({
+        path: "product",
+        select: "name images seller", // Populate the product and its seller field
+        match: { seller: sellerId }, // Ensure the product belongs to the seller
+      })
+      .populate("user", "name") // Populate the user field
+      .skip(skip)
+      .limit(Number(limit))
+      .exec();
+
+    // Filter out reviews where the product is null (due to the match condition)
+    const filteredReviews = reviews.filter((review) => review.product !== null);
+
+    if (filteredReviews.length === 0) {
+      return res.status(200).json(new ApiResponse([], "No reviews found."));
+    }
+
+    return res.status(200).json(
+      new ApiResponse(
+        {
+          data: filteredReviews,
+          total,
+        },
+        "Reviews fetched successfully."
+      )
+    );
   } catch (error) {
     next(error);
   }
-}
+};
 
 async function sellerReplyToReview(req, res, next) {
   try {

@@ -4,6 +4,7 @@ import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import sendEmail from "../utils/sendEmail.js";
 import { Seller } from "../models/seller.model.js";
+import mongoose from "mongoose";
 
 async function newOrder(req, res, next) {
   try {
@@ -159,19 +160,97 @@ const updateOrderStatus = async (req, res, next) => {
 const fetchSellerOrders = async (req, res, next) => {
   try {
     const sellerId = req.seller._id;
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      orderId,
+      dateFilter, // "thisWeek", "thisMonth", "lastMonth"
+    } = req.query;
 
-    const orders = await Order.find({ seller: sellerId })
-      .populate("orderBy", "name email") // Renamed from `buyer` to `orderBy`
-      .populate("orderItems.product", "name price variant") // Renamed from `items` to `orderItems`
+    const query = { seller: sellerId };
+
+    // Add filters to the query
+    if (status) query.status = status;
+
+    // Validate and filter by orderId
+    if (orderId) {
+      if (!mongoose.Types.ObjectId.isValid(orderId)) {
+        return res.status(200).json(new ApiResponse([], "Invalid order ID."));
+      }
+      query._id = orderId;
+    }
+
+    // Date filtering logic
+    if (dateFilter) {
+      const currentDate = new Date();
+      let startDate, endDate;
+
+      switch (dateFilter) {
+        case "thisWeek":
+          startDate = new Date(
+            currentDate.setDate(currentDate.getDate() - currentDate.getDay())
+          );
+          endDate = new Date(currentDate.setDate(currentDate.getDate() + 6));
+          break;
+        case "thisMonth":
+          startDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth(),
+            1
+          );
+          endDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() + 1,
+            0
+          );
+          break;
+        case "lastMonth":
+          startDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() - 1,
+            1
+          );
+          endDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth(),
+            0
+          );
+          break;
+        default:
+          break;
+      }
+
+      if (startDate && endDate) {
+        query.createdAt = { $gte: startDate, $lte: endDate };
+      }
+    }
+
+    // Get the total count of orders matching the query
+    const total = await Order.countDocuments(query);
+
+    // Pagination logic
+    const skip = (page - 1) * limit;
+    const orders = await Order.find(query)
+      .populate("orderBy", "name email")
+      .populate("orderItems.product", "name price variant")
+      .skip(skip)
+      .limit(Number(limit))
       .exec();
 
     if (!orders || orders.length === 0) {
-      throw new ApiError(200, "No orders found for this seller.");
+      return res.status(200).json(new ApiResponse([], "No orders found."));
     }
 
-    return res
-      .status(200)
-      .json(new ApiResponse(orders, "Orders fetched successfully."));
+    return res.status(200).json(
+      new ApiResponse(
+        {
+          data: orders,
+          total,
+        },
+        "Orders fetched successfully."
+      )
+    );
   } catch (error) {
     next(error);
   }

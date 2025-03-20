@@ -281,12 +281,11 @@ async function updateProduct(req, res, next) {
 async function getSellerProducts(req, res, next) {
   try {
     const sellerId = req.seller._id;
-    const { page, limit, name, minPrice, maxPrice, stock, minSold, dummy } =
-      req.query;
+    const { page, limit, name, minPrice, maxPrice, minSold, dummy } = req.query;
 
     // Check if dummy data is requested
     if (dummy === "true") {
-      const dummyProducts = generateDummyProducts(40); // Generate 10 dummy products
+      const dummyProducts = generateDummyProducts(40); // Generate dummy products
       return res
         .status(200)
         .json(
@@ -307,32 +306,31 @@ async function getSellerProducts(req, res, next) {
         ...query["variants.price"],
         $lte: Number(maxPrice),
       };
-    if (stock) query.countInStock = { $gte: Number(stock) };
     if (minSold) query.sold = { $gte: Number(minSold) };
 
-    let products;
-    if (page && limit) {
-      // Apply pagination if page and limit are provided
-      const skip = (page - 1) * limit;
-      products = await Product.find(query)
-        .populate("categories", "name")
-        .skip(skip)
-        .limit(Number(limit));
-    } else {
-      // Fetch all products without pagination
-      products = await Product.find(query).populate("categories", "name");
-    }
+    // Get the total count of products matching the query
+    const total = await Product.countDocuments(query);
 
-    res
-      .status(200)
-      .json(
-        new ApiResponse(products, "Seller products retrieved successfully.")
-      );
+    // Pagination logic
+    const skip = (page - 1) * limit;
+    const products = await Product.find(query)
+      .populate("categories", "name")
+      .skip(skip)
+      .limit(Number(limit));
+
+    res.status(200).json(
+      new ApiResponse(
+        {
+          data: products,
+          total, // Include the total count in the response
+        },
+        "Seller products retrieved successfully."
+      )
+    );
   } catch (error) {
     next(error);
   }
 }
-
 // Function to generate dummy products
 function generateDummyProducts(count) {
   const dummyProducts = [];
