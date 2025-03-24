@@ -5,7 +5,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import compression from "compression";
-
+import { initializeSocket } from "./chat/sockets/seller-buyer-socketHandler.js";
 // DB configuration middleware imports
 import { dbConnection } from "./db/dbConnection.js";
 import { errorMiddleware } from "./middlwares/errorMiddleware.js";
@@ -21,6 +21,7 @@ import CategoryRoutes from "./routes/category.routes.js";
 import CartWishlistRoutes from "./routes/cart-wishlist.routes.js";
 import SellerAuthRoutes from "./routes/sellerAuth.routes.js";
 import AdminAuthRoutes from "./routes/adminAuth.routes.js";
+import SellerBuyerChatRoutes from "./chat/routes/seller-buyer-chat.routes.js";
 
 // Load environment variables
 dotenv.config();
@@ -58,6 +59,9 @@ app.use("/api/product", ReviewRoutes);
 app.use("/api/product", CategoryRoutes);
 app.use("/api/order", OrderRoutes);
 
+// chat routes
+app.use("/api/chat", SellerBuyerChatRoutes);
+
 // Wildcard route for handling 404 errors
 app.get("*", (req, res) => {
   res.status(404).json("not found");
@@ -67,7 +71,7 @@ app.get("*", (req, res) => {
 app.use(errorMiddleware);
 
 // Start the server and call MongoDB connection inside listen
-app.listen(PORT, async () => {
+const expressServer = app.listen(PORT, async () => {
   try {
     console.log(`Server running on port ${PORT}`);
     await dbConnection();
@@ -75,3 +79,6 @@ app.listen(PORT, async () => {
     console.log(`Error starting server: ${error.message}`);
   }
 });
+
+// Initialize Socket.io
+initializeSocket(expressServer);

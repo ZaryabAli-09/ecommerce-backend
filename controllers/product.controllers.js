@@ -169,21 +169,6 @@ async function createProduct(req, res, next) {
   }
 }
 
-// for edit product  : not completed yet
-const deleteProductImage = async (req, res, next) => {
-  const { publicId } = req.params;
-  try {
-    const deletedImg = await cloudinary.uploader.destroy(publicId); // Delete image from Cloudinary
-    if (!deletedImg) {
-      throw new ApiError(400, "Some thing went wrong. Please try again later.");
-    }
-
-    res.status(200).json(new ApiResponse("Image deleted successfully."));
-  } catch (error) {
-    next(error);
-  }
-};
-
 // future note : we also make sure to delete its reviews
 async function deleteProduct(req, res, next) {
   try {
@@ -233,13 +218,45 @@ async function deleteProduct(req, res, next) {
     next(error);
   }
 }
+const deleteProductImage = async (req, res, next) => {
+  const { publicId, productId, variantIndex, imageIndex } = req.params;
 
+  try {
+    // Step 1: Delete the image from Cloudinary
+    const deletedImg = await cloudinary.uploader.destroy(publicId);
+    if (!deletedImg) {
+      throw new ApiError(400, "Something went wrong. Please try again later.");
+    }
+
+    // Step 2: Find the product by ID
+    const product = await Product.findById(productId);
+    if (!product) {
+      throw new ApiError(404, "Product not found.");
+    }
+
+    // Step 3: Remove the image from the specific variant
+    const variant = product.variants[variantIndex];
+    if (!variant) {
+      throw new ApiError(404, "Variant not found.");
+    }
+
+    // Remove the image at the specified index
+    variant.images.splice(imageIndex, 1);
+
+    // Step 4: Save the updated product
+    await product.save();
+
+    // Step 5: Send success response
+    res.status(200).json(new ApiResponse("Image deleted successfully."));
+  } catch (error) {
+    next(error);
+  }
+};
 async function updateProduct(req, res, next) {
   try {
     const { productId } = req.params;
     const sellerId = req.seller._id;
 
-    // Ensure the productId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(productId)) {
       throw new ApiError(400, "Invalid product ID format.");
     }
@@ -255,16 +272,21 @@ async function updateProduct(req, res, next) {
         "Product not found or you do not have permission to delete it."
       );
     }
+
+    const { variants: updatedVariants, ...otherFields } = req.body;
+
     // Calculate the new countInStock by summing the stock of all variants
-    const updatedVariants = req.body.variants || productExist.variants;
     const newCountInStock = updatedVariants.reduce(
       (acc, variant) => acc + Number(variant.stock || 0),
       0
     );
+
+    // Update the product with new variants and other fields
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       {
-        ...req.body,
+        ...otherFields,
+        variants: updatedVariants,
         countInStock: newCountInStock,
       },
       { new: true }
