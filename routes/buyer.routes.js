@@ -12,7 +12,7 @@ const router = express.Router();
 
 // Admin routes
 // ... change middleware to  verifyAdmin after testing
-router.get("/all", verifyAdmin, getAllBuyers);
+router.get("/all", getAllBuyers);
 router.delete("/delete/:buyerId", verifyAdmin, deleteBuyer);
 
 // Buyer routes

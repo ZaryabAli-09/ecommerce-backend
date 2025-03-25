@@ -1,73 +1,80 @@
 import { Message } from "../models/seller-buyer-chat.models.js";
+import { Seller } from "../../models/seller.model.js";
+import { Buyer } from "../../models/buyer.models.js";
+import { ApiError } from "../../utils/apiError.js";
+import { ApiResponse } from "../../utils/apiResponse.js";
+import mongoose from "mongoose";
 
-// Get all conversations for a user
-export const getConversations = async (req, res) => {
+export const getConversations = async (req, res, next) => {
   try {
-    const userId = req.user._id;
-    const conversations = await Message.aggregate([
-      {
-        $match: {
-          $or: [{ sender: userId }, { receiver: userId }],
-        },
-      },
-      {
-        $group: {
-          _id: {
-            $cond: [{ $eq: ["$sender", userId] }, "$receiver", "$sender"],
-          },
-          lastMessage: { $last: "$message" },
-          timestamp: { $last: "$timestamp" },
-        },
-      },
-      {
-        $lookup: {
-          from: "buyers",
-          localField: "_id",
-          foreignField: "_id",
-          as: "buyer",
-        },
-      },
-      {
-        $lookup: {
-          from: "sellers",
-          localField: "_id",
-          foreignField: "_id",
-          as: "seller",
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          lastMessage: 1,
-          timestamp: 1,
-          user: { $arrayElemAt: ["$buyer", 0] } || {
-            $arrayElemAt: ["$seller", 0],
-          },
-        },
-      },
-    ]);
+    const userId = req.query.userId; // Get user ID from query params
 
-    res.status(200).json(conversations);
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new ApiError(400, "Invalid user ID format.");
+    }
+    // Fetch all messages where the user is either sender or receiver
+    const messages = await Message.find({
+      $or: [{ sender: userId }, { receiver: userId }],
+    }).sort({ timestamp: -1 }); // Latest messages first
+
+    // Store only the latest message per conversation
+    const conversationMap = new Map();
+
+    for (const msg of messages) {
+      const isSender = msg.sender.toString() === userId;
+      const otherUserId = isSender ? msg.receiver : msg.sender;
+      const otherUserModel = isSender ? msg.receiverModel : msg.senderModel;
+
+      // Get the actual user details based on model (Buyer or Seller)
+      let otherUser;
+      if (otherUserModel === "Buyer") {
+        otherUser = await Buyer.findById(otherUserId).select("name");
+      } else if (otherUserModel === "Seller") {
+        otherUser = await Seller.findById(otherUserId).select("brandName");
+      }
+
+      if (otherUser && !conversationMap.has(otherUserId.toString())) {
+        conversationMap.set(otherUserId.toString(), {
+          _id: otherUser._id,
+          name: otherUser.brandName || otherUser.name, // Ensure correct field is used
+          lastMessage: msg.message,
+          timestamp: msg.timestamp,
+        });
+      }
+    }
+
+    res.status(200).json([...conversationMap.values()]);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching conversations", error });
+    next(error);
   }
 };
 
-// Get messages between two users
-export const getMessages = async (req, res) => {
+export const getMessages = async (req, res, next) => {
   try {
-    const { receiverId } = req.params;
-    const senderId = req.user._id;
+    const { senderId, receiverId } = req.query;
+
+    if (!senderId || !receiverId) {
+      throw new ApiError(400, "Both senderId and receiverId are required.");
+    }
 
     const messages = await Message.find({
       $or: [
         { sender: senderId, receiver: receiverId },
         { sender: receiverId, receiver: senderId },
       ],
-    }).sort({ timestamp: 1 });
+    })
+      .sort({ createdAt: 1 })
+      .populate("sender", "name brandName")
+      .populate("receiver", "name brandName");
 
-    res.status(200).json(messages);
+    if (!messages.length) {
+      throw new ApiError(404, "No messages found.");
+    }
+
+    res
+      .status(200)
+      .json(new ApiResponse(messages, "Messages retrieved successfully."));
   } catch (error) {
-    res.status(500).json({ message: "Error fetching messages", error });
+    next(error);
   }
 };

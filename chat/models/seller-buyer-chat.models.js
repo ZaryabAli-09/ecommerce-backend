@@ -4,15 +4,17 @@ const messageSchema = new mongoose.Schema({
   sender: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
-    refPath: "Buyer",
+    refPath: "senderModel", // Dynamic referencing
   },
-  senderModel: { type: String, required: true, enum: ["Buyer", "Seller"] },
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
-    ref: "Seller",
+    refPath: "receiverModel", // Dynamic referencing
   },
   receiverModel: { type: String, required: true, enum: ["Buyer", "Seller"] },
+
+  senderModel: { type: String, required: true, enum: ["Buyer", "Seller"] },
+
   message: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
 });

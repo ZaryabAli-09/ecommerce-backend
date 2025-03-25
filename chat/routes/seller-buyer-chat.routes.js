@@ -10,6 +10,6 @@ const router = express.Router();
 router.get("/conversations", getConversations);
 
 // Get messages between two users
-router.get("/messages/:receiverId", getMessages);
+router.get("/messages", getMessages);
 
 export default router;
