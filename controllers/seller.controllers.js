@@ -431,6 +431,41 @@ const getSellerBillingInfo = async (req, res, next) => {
     next(error);
   }
 };
+
+async function getPendingSellers(req, res, next) {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const pendingSellers = await Seller.find({ status: "pending" })
+      .skip(skip)
+      .limit(limit)
+      .select(
+        "-password -verificationOtp -verificationOtpExpiresAt -resetPasswordToken -resetPasswordTokenExpiresAt"
+      )
+      .sort({ createdAt: -1 });
+
+    const totalPendingSellers = await Seller.countDocuments({
+      status: "pending",
+    });
+
+    return res.status(200).json(
+      new ApiResponse(
+        {
+          sellers: pendingSellers,
+          total: totalPendingSellers,
+          page,
+          pages: Math.ceil(totalPendingSellers / limit),
+          limit,
+        },
+        "Pending sellers retrieved successfully"
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+}
 export {
   sellerDashboardInformation,
   getAllSellers,
@@ -439,4 +474,5 @@ export {
   deleteSeller,
   uploadImage,
   getSellerBillingInfo,
+  getPendingSellers,
 };

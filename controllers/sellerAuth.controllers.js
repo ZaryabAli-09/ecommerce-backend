@@ -425,6 +425,138 @@ async function logout(req, res, next) {
   }
 }
 
+async function approveSeller(req, res, next) {
+  try {
+    const { sellerId } = req.params;
+
+    console.log(sellerId);
+    // Find the seller
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      throw new ApiError(404, "Seller not found");
+    }
+
+    if (seller.status !== "pending") {
+      throw new ApiError(400, "Seller is not in pending status");
+    }
+
+    // Generate a random password
+    const generatedPassword = crypto.randomBytes(6).toString("hex"); // Generates a 12-character password
+
+    // Hash the password
+    const hashedPassword = await bcryptjs.hash(generatedPassword, 12);
+
+    // Update seller status and set password
+    seller.status = "approved";
+    seller.password = hashedPassword;
+    seller.isVerified = true;
+    await seller.save();
+
+    // Send email with credentials
+    const emailTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h2 style="color: #4a5568;">Your Seller Account Has Been Approved!</h2>
+        <p style="color: #4a5568;">Hello ${seller.brandName},</p>
+        <p style="color: #4a5568;">We're excited to inform you that your seller account has been approved. You can now log in to your seller dashboard and start managing your products.</p>
+        
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Email:</strong> ${seller.email}</p>
+          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> ${generatedPassword}</p>
+        </div>
+        
+        <p style="color: #4a5568;">For security reasons, we recommend changing your password after logging in.</p>
+        <a href="${process.env.SELLER_FRONTEND_LOGIN_DOMAIN_URL}" style="display: inline-block; background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 15px;">Go to Seller Dashboard</a>
+        
+        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>The Admin Team</p>
+      </div>
+    `;
+
+    await sendEmailHtml(
+      process.env.SMTP_GMAIL_USER,
+      seller.email,
+      "Your Seller Account Has Been Approved",
+      emailTemplate
+    );
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          null,
+          "Seller approved successfully. Credentials sent to seller's email."
+        )
+      );
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function rejectSeller(req, res, next) {
+  try {
+    const { sellerId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      throw new ApiError(400, "Rejection reason is required");
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      throw new ApiError(404, "Seller not found");
+    }
+
+    if (seller.status !== "pending") {
+      throw new ApiError(400, "Seller is not in pending status");
+    }
+
+    // Store seller email before deletion
+    const sellerEmail = seller.email;
+    const brandName = seller.brandName;
+
+    // Remove seller from database
+    await Seller.findByIdAndDelete(sellerId);
+
+    // Send rejection email
+    const rejectionTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h2 style="color: #4a5568;">Your Seller Account Application</h2>
+        <p style="color: #4a5568;">Hello ${brandName},</p>
+        <p style="color: #4a5568;">We regret to inform you that your seller account application has been rejected and your account has been removed from our system.</p>
+        
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Reason:</strong> ${reason}</p>
+        </div>
+        
+        <p style="color: #4a5568;">
+          If you believe this decision was made in error or would like to reapply, 
+          please contact our support team at ${process.env.SUPPORT_NUMBER} before 
+          registering again as a seller.
+        </p>
+        
+        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>The Admin Team</p>
+      </div>
+    `;
+
+    await sendEmailHtml(
+      process.env.SMTP_FROM_EMAIL,
+      sellerEmail,
+      "Your Seller Account Application Status",
+      rejectionTemplate
+    );
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          null,
+          "Seller rejected and removed successfully. Notification sent to seller."
+        )
+      );
+  } catch (error) {
+    next(error);
+  }
+}
+
 export {
   register,
   login,
@@ -433,4 +565,6 @@ export {
   forgotPassword,
   resetPassword,
   logout,
+  approveSeller,
+  rejectSeller,
 };

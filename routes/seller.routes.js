@@ -10,6 +10,7 @@ import {
   updateSeller,
   uploadImage,
   getSellerBillingInfo,
+  getPendingSellers,
 } from "../controllers/seller.controllers.js";
 import { upload } from "../middlwares/multerMiddleware.js";
 
@@ -23,6 +24,7 @@ const handleImageType = (type) => (req, res, next) => {
 
 // admin routes and general buyer routes
 router.get("/all", getAllSellers);
+router.get("/pending", verifyAdmin, getPendingSellers);
 router.delete("/delete/:sellerId", verifyAdmin, deleteSeller);
 router.get("/billingInfo", verifyAdmin, getSellerBillingInfo);
 // brand / seller routes

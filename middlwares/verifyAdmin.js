@@ -9,7 +9,7 @@ async function verifyAdmin(req, res, next) {
 
     // Check if token is present
     if (!token) {
-      throw new ApiError(401, "Authorization token is required.");
+      throw new ApiError(401, "Session expired! Please log in again.");
     }
 
     // Verify the token
@@ -39,6 +39,9 @@ async function verifyAdmin(req, res, next) {
     // Proceed to next middleware function if the user is an admin
     return next();
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      throw new ApiError(401, "Session expired! Please log in again.");
+    }
     // Pass any other errors to the error handler
     next(error);
   }
