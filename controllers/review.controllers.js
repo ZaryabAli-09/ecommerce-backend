@@ -70,17 +70,6 @@ async function addReview(req, res, next) {
   }
 }
 
-async function getReviews(req, res, next) {
-  try {
-    const reviews = await Review.find();
-
-    res
-      .status(200)
-      .json(new ApiResponse(reviews, "Reviews retrieved successfully."));
-  } catch (error) {
-    next(error);
-  }
-}
 async function deleteReview(req, res, next) {
   try {
     const { reviewId } = req.params;
@@ -121,6 +110,89 @@ async function deleteReview(req, res, next) {
   }
 }
 
+const getAllReviews = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10, replyStatus, dateFilter } = req.query;
+
+    // Base query - exclude reviews with deleted products
+    const query = {
+      product: { $exists: true, $ne: null },
+    };
+
+    // Filter by reply status
+    if (replyStatus === "replied") {
+      query["sellerReply.text"] = { $exists: true, $ne: null };
+    } else if (replyStatus === "not replied") {
+      query["sellerReply.text"] = null;
+    }
+    // Date filtering - using immutable dates
+    if (dateFilter) {
+      const now = new Date();
+      let startDate, endDate;
+
+      switch (dateFilter) {
+        case "thisWeek":
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - now.getDay());
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          break;
+        case "thisMonth":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          break;
+        case "lastMonth":
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+          break;
+      }
+
+      if (startDate && endDate) {
+        query.createdAt = {
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
+    }
+
+    // Get total count (including product existence check)
+    const total = await Review.countDocuments(query);
+
+    // Get paginated results
+    const reviews = await Review.find(query)
+      .populate({
+        path: "product",
+        select: "name images",
+        match: { _id: { $exists: true } }, // Ensure product exists
+      })
+      .populate({
+        path: "product.seller",
+        select: "brandName",
+      })
+      .populate("user", "name")
+      .sort({ createdAt: -1 }) // Newest first
+      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .exec();
+
+    // Additional filtering just in case
+    const filteredReviews = reviews.filter(
+      (review) => review.product && review.product._id
+    );
+
+    return res.status(200).json(
+      new ApiResponse(
+        {
+          data: filteredReviews,
+          total,
+        },
+        "Reviews fetched successfully."
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 const getSellerReviews = async (req, res, next) => {
   try {
     const { sellerId } = req.params;
@@ -131,6 +203,7 @@ const getSellerReviews = async (req, res, next) => {
       dateFilter, // "thisWeek", "thisMonth", "lastMonth"
     } = req.query;
 
+    console.log(req.query);
     // Base query to fetch reviews
     const query = {};
 
@@ -257,7 +330,7 @@ async function sellerReplyToReview(req, res, next) {
 export {
   addReview,
   deleteReview,
-  getReviews,
+  getAllReviews,
   getSellerReviews,
   sellerReplyToReview,
 };

@@ -5,15 +5,38 @@ async function createCategories(req, res, next) {
   const { name, parent } = req.body;
 
   try {
+    // Validate input
+    if (!name || typeof name !== "string") {
+      return res
+        .status(400)
+        .json(new ApiResponse(null, "Category name is required"));
+    }
+
+    // Check for existing category with same name (case-insensitive) in the same hierarchy
+    const existingCategory = await Category.findOne({
+      name: { $regex: new RegExp(`^${name}$`, "i") }, // Case-insensitive match
+      parent: parent || { $exists: !parent }, // Match same parent (null if no parent)
+    });
+
+    if (existingCategory) {
+      return res
+        .status(400)
+        .json(
+          new ApiResponse(
+            null,
+            `Category "${name}" already exists in this hierarchy`
+          )
+        );
+    }
+
     // Create the new category
     const newCategory = new Category({ name, parent });
     await newCategory.save();
 
-    // If there's a parent, update the parent's subCategories using $push
-
+    // Update parent's subCategories if parent exists
     if (parent) {
-      await Category.updateOne(
-        { _id: parent },
+      await Category.findByIdAndUpdate(
+        parent,
         { $push: { subCategories: newCategory._id } },
         { new: true }
       );

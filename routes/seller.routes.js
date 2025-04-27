@@ -9,6 +9,7 @@ import {
   sellerDashboardInformation,
   updateSeller,
   uploadImage,
+  getSellerBillingInfo,
 } from "../controllers/seller.controllers.js";
 import { upload } from "../middlwares/multerMiddleware.js";
 
@@ -20,12 +21,12 @@ const handleImageType = (type) => (req, res, next) => {
   next();
 };
 
-// Admin routes
-// ... change middleware to  verifyAdmin after testing
-router.get("/all", verifyUser, getAllSellers);
+// admin routes and general buyer routes
+router.get("/all", getAllSellers);
 router.delete("/delete/:sellerId", verifyAdmin, deleteSeller);
+router.get("/billingInfo", verifyAdmin, getSellerBillingInfo);
+// brand / seller routes
 router.get("/dashboard-information/:sellerId", sellerDashboardInformation);
-// Buyer routes
 router.get("/single/:sellerId", verifySeller, getSingleSeller);
 router.put("/update/:sellerId", verifySeller, updateSeller);
 router.patch(

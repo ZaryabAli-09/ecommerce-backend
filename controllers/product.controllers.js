@@ -218,6 +218,50 @@ async function deleteProduct(req, res, next) {
     next(error);
   }
 }
+// future note : we also make sure to delete its reviews
+async function adminDeleteProduct(req, res, next) {
+  try {
+    const { productId } = req.params;
+
+    const productExist = await Product.findOne({
+      _id: productId,
+    });
+
+    if (!productExist) {
+      throw new ApiError(404, "Product not found.");
+    }
+
+    // Collect all the publicIds from each variant
+    const allImagesPublicIds = productExist.variants.flatMap((variant) =>
+      variant.images.map((image) => image.public_id)
+    );
+
+    console.log(allImagesPublicIds);
+    // Delete images from Cloudinary
+    const deleteProductImages = allImagesPublicIds.map((publicId) => {
+      return cloudinary.uploader.destroy(publicId);
+    });
+
+    await Promise.all(deleteProductImages);
+
+    if (!deleteProductImages) {
+      throw new ApiError(
+        400,
+        "Error occur while deleting product. Please try again."
+      );
+    }
+
+    const productToBeDeleted = await Product.findByIdAndDelete(productId);
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(productToBeDeleted, "Product deleted successfully.")
+      );
+  } catch (error) {
+    next(error);
+  }
+}
 const deleteProductImage = async (req, res, next) => {
   const { publicId, productId, variantIndex, imageIndex } = req.params;
 
@@ -295,6 +339,107 @@ async function updateProduct(req, res, next) {
     res
       .status(200)
       .json(new ApiResponse(updatedProduct, "Product updated successfully."));
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function adminUpdateProduct(req, res, next) {
+  try {
+    const { productId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      throw new ApiError(400, "Invalid product ID format.");
+    }
+
+    const productExist = await Product.findOne({
+      _id: productId,
+    });
+
+    if (!productExist) {
+      throw new ApiError(404, "Product not found.");
+    }
+
+    const { variants: updatedVariants, ...otherFields } = req.body;
+
+    // Calculate the new countInStock by summing the stock of all variants
+    const newCountInStock = updatedVariants.reduce(
+      (acc, variant) => acc + Number(variant.stock || 0),
+      0
+    );
+
+    // Update the product with new variants and other fields
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      {
+        ...otherFields,
+        variants: updatedVariants,
+        countInStock: newCountInStock,
+      },
+      { new: true }
+    );
+
+    res
+      .status(200)
+      .json(new ApiResponse(updatedProduct, "Product updated successfully."));
+  } catch (error) {
+    next(error);
+  }
+}
+async function getAllProducts(req, res, next) {
+  try {
+    const products = await Product.find()
+      .populate("reviews")
+      .populate("seller");
+
+    res
+      .status(200)
+      .json(new ApiResponse(products, "All products retrieved successfully."));
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getAllProductsWithFilteringAndPagination(req, res, next) {
+  try {
+    // if query parameters not given the controller will act as before like simply you will get all products
+    // the query paramter is for filtering and paginations
+    const { page, limit, name, minPrice, maxPrice, minSold } = req.query;
+
+    const query = {};
+
+    // Add filters to the query
+    if (name) query.name = { $regex: name, $options: "i" }; // Case-insensitive search
+    if (minPrice) query["variants.price"] = { $gte: Number(minPrice) };
+    if (maxPrice)
+      query["variants.price"] = {
+        ...query["variants.price"],
+        $lte: Number(maxPrice),
+      };
+    if (minSold) query.sold = { $gte: Number(minSold) };
+
+    // Get the total count of products matching the query
+    const total = await Product.countDocuments(query);
+
+    // Pagination logic
+    const skip = (page - 1) * limit;
+
+    const products = await Product.find(query)
+      .populate("reviews")
+      .populate("seller")
+      .populate("categories", "name")
+      .skip(skip)
+      .limit(Number(limit));
+
+    res.status(200).json(
+      new ApiResponse(
+        {
+          data: products,
+          total, // Include the total count in the response
+        },
+        "All products retrieved successfully."
+      )
+    );
   } catch (error) {
     next(error);
   }
@@ -408,20 +553,6 @@ async function getSingleProduct(req, res, next) {
   }
 }
 
-async function getAllProducts(req, res, next) {
-  try {
-    const products = await Product.find()
-      .populate("reviews")
-      .populate("seller");
-
-    res
-      .status(200)
-      .json(new ApiResponse(products, "All products retrieved successfully."));
-  } catch (error) {
-    next(error);
-  }
-}
-
 export {
   createProduct,
   updateProduct,
@@ -430,4 +561,7 @@ export {
   getSellerProducts,
   getSingleProduct,
   deleteProductImage,
+  getAllProductsWithFilteringAndPagination,
+  adminDeleteProduct,
+  adminUpdateProduct,
 };

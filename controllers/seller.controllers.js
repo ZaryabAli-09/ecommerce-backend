@@ -379,6 +379,58 @@ const extractProductCategoryData = (orders, products) => {
     value: categorySales[category],
   }));
 };
+
+const getSellerBillingInfo = async (req, res, next) => {
+  try {
+    const { page, limit, search = "" } = req.query;
+    const skip = (page - 1) * limit;
+
+    let query = {};
+    if (search) {
+      query.brandName = { $regex: search, $options: "i" };
+    }
+
+    const [sellers, total] = await Promise.all([
+      Seller.find(query)
+        .select("brandName bankDetails")
+        .skip(skip)
+        .limit(Number(limit))
+        .lean()
+        .exec(),
+      Seller.countDocuments(query),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    if (!sellers || sellers.length === 0) {
+      return res.status(200).json(
+        new ApiResponse(
+          {
+            data: [],
+            totalPages: 0,
+            currentPage: Number(page),
+            totalItems: 0,
+          },
+          "No sellers found"
+        )
+      );
+    }
+
+    res.status(200).json(
+      new ApiResponse(
+        {
+          data: sellers,
+          totalPages,
+          currentPage: Number(page),
+          totalItems: total,
+        },
+        "Seller billing info retrieved successfully"
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 export {
   sellerDashboardInformation,
   getAllSellers,
@@ -386,4 +438,5 @@ export {
   updateSeller,
   deleteSeller,
   uploadImage,
+  getSellerBillingInfo,
 };
