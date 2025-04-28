@@ -22,6 +22,7 @@ import CartWishlistRoutes from "./routes/cart-wishlist.routes.js";
 import SellerAuthRoutes from "./routes/sellerAuth.routes.js";
 import AdminAuthRoutes from "./routes/adminAuth.routes.js";
 import SellerBuyerChatRoutes from "./chat/routes/seller-buyer-chat.routes.js";
+import SupportAndDisputesRoutes from "./routes/support&disputes.routes.js";
 
 // Load environment variables
 dotenv.config();
@@ -59,6 +60,8 @@ app.use("/api/product", ProductRoutes);
 app.use("/api/product", ReviewRoutes);
 app.use("/api/product", CategoryRoutes);
 app.use("/api/order", OrderRoutes);
+
+app.use("/api/support&disputes", SupportAndDisputesRoutes);
 
 // chat routes
 app.use("/api/chat", SellerBuyerChatRoutes);
