@@ -16,15 +16,99 @@ const __dirname = path.dirname(__filename);
 
 async function getAllSellers(req, res, next) {
   try {
-    const sellers = await Seller.find();
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const skip = (page - 1) * limit;
 
-    if (!sellers || sellers.length === 0) {
-      throw new ApiError(404, "No sellers found.");
+    const query = {};
+    if (search) {
+      query.$or = [
+        { brandName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
     }
 
-    return res
-      .status(200)
-      .json(new ApiResponse(sellers, "All sellers retrieved successfully."));
+    const sellers = await Seller.find(query)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate({
+        path: "products",
+        select: "name price sold images",
+        options: { sort: { sold: -1 }, limit: 3 },
+      });
+
+    const totalSellers = await Seller.countDocuments(query);
+
+    return res.status(200).json(
+      new ApiResponse(
+        {
+          sellers,
+          totalPages: Math.ceil(totalSellers / limit),
+          currentPage: parseInt(page),
+          totalSellers,
+        },
+        "Sellers retrieved successfully"
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getSellerDetailsForAdminPanel(req, res, next) {
+  try {
+    const { sellerId } = req.params;
+
+    // Get seller basic info
+    const seller = await Seller.findById(sellerId).lean();
+    if (!seller) {
+      throw new ApiError(404, "Seller not found");
+    }
+
+    // Get products with proper image handling
+    const products = await Product.find({ seller: sellerId })
+      .select("name price sold images variants createdAt")
+      .sort({ sold: -1, createdAt: -1 })
+      .lean();
+
+    // Process products to ensure proper image URLs
+    const processedProducts = products.map((product) => {
+      // Use first variant's image if no main product image exists
+      const mainImage =
+        product.images?.[0]?.url ||
+        product.variants?.[0]?.images?.[0]?.url ||
+        "/placeholder-product.jpg";
+
+      return {
+        ...product,
+        displayImage: mainImage,
+        variants: product.variants.map((variant) => ({
+          ...variant,
+          displayImage: variant.images?.[0]?.url || mainImage,
+        })),
+      };
+    });
+
+    // Get top 3 selling products
+    const topProducts = processedProducts
+      .sort((a, b) => b.sold - a.sold)
+      .slice(0, 3);
+
+    // Get 3 most recent products
+    const recentProducts = processedProducts
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 3);
+
+    return res.status(200).json(
+      new ApiResponse(
+        {
+          seller,
+          topProducts,
+          recentProducts,
+          totalProducts: products.length,
+        },
+        "Seller details retrieved successfully"
+      )
+    );
   } catch (error) {
     next(error);
   }
@@ -475,4 +559,5 @@ export {
   uploadImage,
   getSellerBillingInfo,
   getPendingSellers,
+  getSellerDetailsForAdminPanel,
 };
