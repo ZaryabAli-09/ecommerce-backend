@@ -13,8 +13,8 @@ import { verifyUser } from "../middlwares/verifyUser.js";
 const router = express.Router();
 
 // cart routes
-router.post("/cart/add/:productId", verifyUser, addToCartItems);
-router.post("/cart/remove/:productId", verifyUser, removeFromCart);
+router.post("/cart/add/:productId/:variantId", verifyUser, addToCartItems);
+router.post("/cart/remove/:cartId", verifyUser, removeFromCart);
 router.put("/cart/update", verifyUser, updateCart);
 router.get("/cart", verifyUser, getCartItems);
 

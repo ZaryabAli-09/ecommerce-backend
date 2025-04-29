@@ -112,6 +112,11 @@ const buyerSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
         },
+        variant: {
+          // Add variant reference
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+        },
         quantity: {
           type: Number,
           default: 1,
