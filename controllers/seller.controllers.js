@@ -18,7 +18,6 @@ async function getAllSellers(req, res, next) {
   try {
     const { page = 1, limit = 10, search = "" } = req.query;
     const skip = (page - 1) * limit;
-    console.log(search);
     const query = { status: { $ne: "pending" } }; // Exclude pending sellers
     if (search) {
       query.$or = [
