@@ -168,39 +168,133 @@ const updateOrderStatus = async (req, res, next) => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;
-    // const sellerId = req.seller._id;
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    // Validate status
-    const validStatuses = ["pending", "shipped", "delivered", "canceled"];
-    if (!validStatuses.includes(status)) {
-      throw new ApiError(400, "Invalid status.");
+    try {
+      // Validate status
+      const validStatuses = ["pending", "shipped", "delivered", "canceled"];
+      if (!validStatuses.includes(status)) {
+        throw new ApiError(400, "Invalid status.");
+      }
+
+      // Find and lock the order
+      const order = await Order.findOne({
+        _id: orderId,
+      })
+        .populate("orderBy", "email")
+        .session(session);
+
+      if (!order) {
+        throw new ApiError(404, "Order not found.");
+      }
+
+      const previousStatus = order.status;
+
+      // Only proceed if status actually changed
+      if (previousStatus === status) {
+        await session.abortTransaction();
+        return res
+          .status(200)
+          .json(new ApiResponse(order, "Status unchanged."));
+      }
+
+      // Handle inventory adjustments
+      if (status === "canceled") {
+        // When canceling, revert stock and sales
+        await Promise.all(
+          order.orderItems.map(async (item) => {
+            await Product.updateOne(
+              {
+                _id: item.product,
+                "variants._id": item.variantId,
+              },
+              {
+                $inc: {
+                  sold: -item.quantity,
+                  "variants.$.stock": item.quantity,
+                  countInStock: item.quantity,
+                },
+              },
+              { session }
+            );
+          })
+        );
+      } else if (previousStatus === "canceled") {
+        // When reactivating from canceled, verify and deduct stock
+        await Promise.all(
+          order.orderItems.map(async (item) => {
+            const product = await Product.findOne({
+              _id: item.product,
+              "variants._id": item.variantId,
+            }).session(session);
+
+            const variant = product?.variants?.find(
+              (v) => v._id.toString() === item.variantId.toString()
+            );
+
+            if (!variant || variant.stock < item.quantity) {
+              throw new ApiError(
+                400,
+                `Cannot reactivate order - insufficient stock for variant ${item.variantId}`
+              );
+            }
+
+            await Product.updateOne(
+              {
+                _id: item.product,
+                "variants._id": item.variantId,
+              },
+              {
+                $inc: {
+                  sold: item.quantity,
+                  "variants.$.stock": -item.quantity,
+                  countInStock: -item.quantity,
+                },
+              },
+              { session }
+            );
+          })
+        );
+      }
+
+      // Update order status
+      order.status = status;
+
+      await order.save({ session });
+
+      // Commit transaction
+      await session.commitTransaction();
+
+      // Send notification
+      const statusMessages = {
+        pending: "is being processed",
+        shipped: "has been shipped",
+        delivered: "has been delivered",
+        canceled: "has been canceled",
+      };
+
+      await sendEmail(
+        process.env.SMTP_GMAIL_USER,
+        order.orderBy.email,
+        `Order ${status === "canceled" ? "Cancellation" : "Update"}`,
+        `Your order (ID: ${order._id}) ${statusMessages[status]}.` +
+          (status === "shipped"
+            ? ` Tracking number: ${
+                order.trackingNumber || "will be provided soon"
+              }`
+            : "")
+      );
+
+      return res
+        .status(200)
+        .json(new ApiResponse(order, "Order status updated successfully."));
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
     }
-
-    // Find the order and validate seller ownership
-    const order = await Order.findOne({
-      _id: orderId,
-      // seller: sellerId,
-    }).populate("orderBy", "email");
-
-    if (!order) {
-      throw new ApiError(404, "Order not found.");
-    }
-
-    // Update status
-    order.status = status;
-    await order.save();
-
-    // Notify the buyer
-    await sendEmail(
-      process.env.SMTP_GMAIL_USER,
-      order.orderBy.email, // Renamed from `buyer` to `orderBy`
-      "Order Status Updated",
-      `Your order (ID: ${order._id}) status has been updated to: ${status}.`
-    );
-
-    return res
-      .status(200)
-      .json(new ApiResponse(order, "Order status updated successfully."));
   } catch (error) {
     next(error);
   }
