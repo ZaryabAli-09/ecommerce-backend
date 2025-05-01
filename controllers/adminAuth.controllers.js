@@ -93,6 +93,16 @@ async function adminUpdateCredentials(req, res, next) {
 // Add new admin
 const addAdmin = async (req, res, next) => {
   try {
+    const admin = req.admin;
+    if (!admin) {
+      throw new ApiError(401, "Unauthorized access.");
+    }
+    if (admin.title !== "superadmin") {
+      throw new ApiError(
+        403,
+        "You are not authorized to perform this action. only superadmin can add new admin."
+      );
+    }
     const { email, password } = req.body;
     console.log(email, password);
     // Check if admin already exists
@@ -276,10 +286,27 @@ const extractProductCategoryData = (orders, products) => {
   }));
 };
 
+async function getSingleAdmin(req, res, next) {
+  try {
+    const adminId = req.admin;
+    if (!adminId) {
+      throw new ApiError(401, "Unauthorized request.");
+    }
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      throw new ApiError(401, "Unauthorized request.");
+    }
+    res.status(200).json(new ApiResponse(admin, "Admin get successfully."));
+  } catch (error) {
+    next(error);
+  }
+}
 export {
   adminLogin,
   adminLogout,
   adminUpdateCredentials,
   getAllAdmins,
   addAdmin,
+  getSingleAdmin,
 };

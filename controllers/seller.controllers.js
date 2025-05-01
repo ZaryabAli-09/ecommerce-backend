@@ -19,9 +19,10 @@ async function getAllSellers(req, res, next) {
     const { page = 1, limit = 10, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    const query = {};
+    const query = { status: { $ne: "pending" } }; // Exclude pending sellers
     if (search) {
       query.$or = [
+        { status: { $ne: "pending" } },
         { brandName: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
@@ -466,17 +467,21 @@ const extractProductCategoryData = (orders, products) => {
 
 const getSellerBillingInfo = async (req, res, next) => {
   try {
-    const { page, limit, search = "" } = req.query;
+    const { page = 1, limit = 10, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    let query = {};
+    let query = { status: { $ne: "pending" } }; // Exclude pending sellers
+
     if (search) {
-      query.brandName = { $regex: search, $options: "i" };
+      query.$and = [
+        { status: { $ne: "pending" } },
+        { brandName: { $regex: search, $options: "i" } },
+      ];
     }
 
     const [sellers, total] = await Promise.all([
       Seller.find(query)
-        .select("brandName bankDetails")
+        .select("brandName logo bankDetails status") // Include status in selection
         .skip(skip)
         .limit(Number(limit))
         .lean()
@@ -500,10 +505,15 @@ const getSellerBillingInfo = async (req, res, next) => {
       );
     }
 
+    // Double check to filter out any pending sellers (redundant safety check)
+    const filteredSellers = sellers.filter(
+      (seller) => seller.status !== "pending"
+    );
+
     res.status(200).json(
       new ApiResponse(
         {
-          data: sellers,
+          data: filteredSellers,
           totalPages,
           currentPage: Number(page),
           totalItems: total,

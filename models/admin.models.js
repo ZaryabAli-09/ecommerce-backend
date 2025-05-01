@@ -17,6 +17,11 @@ const adminSchema = new mongoose.Schema(
       default: "admin",
       immutable: true,
     },
+    title: {
+      type: String,
+      enum: ["superadmin", "admin"],
+      default: "admin",
+    },
   },
   { timestamps: true }
 );

@@ -158,23 +158,24 @@ const getAllReviews = async (req, res, next) => {
     // Get total count (including product existence check)
     const total = await Review.countDocuments(query);
 
-    // Get paginated results
+    // Get paginated results with proper nested population
     const reviews = await Review.find(query)
       .populate({
         path: "product",
-        select: "name images",
-        match: { _id: { $exists: true } }, // Ensure product exists
-      })
-      .populate({
-        path: "product.seller",
-        select: "brandName",
+        select: "name images seller",
+        match: { _id: { $exists: true } },
+        populate: {
+          // Nested population for product.seller
+          path: "seller",
+          select: "brandName",
+        },
       })
       .populate("user", "name")
-      .sort({ createdAt: -1 }) // Newest first
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
+      .lean()
       .exec();
-
     // Additional filtering just in case
     const filteredReviews = reviews.filter(
       (review) => review.product && review.product._id
