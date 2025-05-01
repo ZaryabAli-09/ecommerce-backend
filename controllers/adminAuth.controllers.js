@@ -137,155 +137,6 @@ const getAllAdmins = async (req, res, next) => {
   }
 };
 
-// app insight controller for admin
-const AppDashboardInformation = async (req, res) => {
-  try {
-    // Fetch products and orders for the seller
-    const products = await Product.find().populate("categories", "name"); // Populate 'categories' and select only 'name'
-
-    const orders = await Order.find().populate("orderBy", "name email"); // Populate buyer details
-
-    // Calculate total sales by summing up the totalAmount of all orders
-    const totalSales = orders.reduce(
-      (total, order) => total + order.totalAmount,
-      0
-    );
-
-    // Calculate total number of customers (unique customers who placed orders)
-    const uniqueCustomers = new Set(
-      orders.map((order) => order.orderBy._id.toString())
-    );
-    const totalSellerCustomers = uniqueCustomers.size;
-
-    // Calculate number of products and orders
-    const totalOrders = orders.length;
-    const totalProducts = products.length;
-
-    // Extract data for charts
-    const salesDataArray = extractSalesData(orders);
-    const productDataArray = extractProductData(orders, products);
-    const orderStatusDataArray = extractOrderStatusData(orders);
-    const userActivityDataArray = extractUserActivityData(orders);
-    const productCategoryDataArray = extractProductCategoryData(
-      orders,
-      products
-    );
-    const totalSellerProductCategories =
-      extractTotalSellerProductCategoryData(products);
-
-    res.json({
-      totalProducts,
-      totalOrders,
-      totalSellerCustomers,
-      totalSales,
-      salesDataArray,
-      productDataArray,
-      orderStatusDataArray,
-      userActivityDataArray,
-      productCategoryDataArray,
-      totalSellerProductCategories,
-      orders, // Return orders directly (no suborders)
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-//Helper functions for data extraction
-const extractSalesData = (orders) => {
-  const salesData = orders.reduce((acc, order) => {
-    const month = new Date(order.createdAt).toLocaleString("default", {
-      month: "short",
-    });
-    acc[month] = (acc[month] || 0) + order.totalAmount;
-    return acc;
-  }, {});
-  return Object.keys(salesData).map((month) => ({
-    name: month,
-    sales: salesData[month],
-  }));
-};
-
-const extractProductData = (orders, products) => {
-  const productSales = orders.reduce((acc, order) => {
-    order.orderItems.forEach((item) => {
-      const product = products.find(
-        (p) => p._id.toString() === item.product.toString()
-      );
-      if (product) {
-        acc[product.name] = (acc[product.name] || 0) + item.quantity;
-      }
-    });
-    return acc;
-  }, {});
-  return Object.keys(productSales).map((productName) => ({
-    name: productName,
-    sales: productSales[productName],
-  }));
-};
-const extractOrderStatusData = (orders) => {
-  const orderStatusCounts = orders.reduce((acc, order) => {
-    acc[order.status] = (acc[order.status] || 0) + 1;
-    return acc;
-  }, {});
-  return Object.keys(orderStatusCounts).map((status) => ({
-    name: status,
-    value: orderStatusCounts[status],
-  }));
-};
-const extractUserActivityData = (orders) => {
-  const userActivityData = orders.reduce((acc, order) => {
-    const month = new Date(order.createdAt).toLocaleString("default", {
-      month: "short",
-    });
-    acc[month] = acc[month] || new Set();
-    acc[month].add(order.orderBy._id.toString());
-    return acc;
-  }, {});
-  return Object.keys(userActivityData).map((month) => ({
-    name: month,
-    activeUsers: userActivityData[month].size,
-  }));
-};
-
-const extractTotalSellerProductCategoryData = (sellerProducts) => {
-  const categorySales = sellerProducts.reduce((acc, product) => {
-    const mergedCategory = product.categories
-      .map((c) => c.name) // Extract category names
-      .join(" > "); // Join with " > " separator
-    acc[mergedCategory] = (acc[mergedCategory] || 0) + 1; // Count each product in the category
-    return acc;
-  }, {});
-
-  return Object.keys(categorySales).map((category) => ({
-    name: category,
-    value: categorySales[category],
-  }));
-};
-
-const extractProductCategoryData = (orders, products) => {
-  const categorySales = orders.reduce((acc, order) => {
-    order.orderItems.forEach((item) => {
-      const product = products.find(
-        (p) => p._id.toString() === item.product.toString()
-      );
-      if (product) {
-        const mergedCategory = product.categories
-          .map((c) => c.name) // Extract category names
-          .join(" > "); // Join with " > " separator
-        acc[mergedCategory] = (acc[mergedCategory] || 0) + item.quantity;
-      }
-    });
-    return acc;
-  }, {});
-
-  return Object.keys(categorySales).map((category) => ({
-    name: category,
-    value: categorySales[category],
-  }));
-};
-
 async function getSingleAdmin(req, res, next) {
   try {
     const adminId = req.admin;
@@ -302,6 +153,266 @@ async function getSingleAdmin(req, res, next) {
     next(error);
   }
 }
+
+const AppDashboardInformation = async (req, res) => {
+  try {
+    // Fetch all products and orders (excluding canceled orders)
+    const products = await Product.find()
+      .populate("categories", "name")
+      .populate("seller", "brandName");
+    const orders = await Order.find({ status: { $ne: "canceled" } }).populate(
+      "orderBy",
+      "name email"
+    );
+
+    // 1. Product distribution by category
+    const productDistributionByCategory =
+      getProductDistributionByCategory(products);
+
+    // 2. Product sales data by category (excluding canceled orders)
+    const productSalesByCategory = getProductSalesByCategory(orders, products);
+
+    // 3. Revenue/sales data (excluding canceled orders)
+    const revenueData = getRevenueData(orders);
+
+    // 4. Buying customers data
+    const customerData = getCustomerData(orders);
+
+    // 5. Order status data (including canceled for completeness, but filtered out elsewhere)
+    const orderStatusData = getOrderStatusData(await Order.find());
+
+    // 6. Top selling products (from product.sold field)
+    const topSellingProducts = getTopSellingProducts(products);
+
+    // 7. Totals (excluding canceled orders)
+    const totals = {
+      totalProducts: products.length,
+      totalOrders: orders.length,
+      totalRevenue: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+      totalCustomers: new Set(
+        orders.map((order) => order.orderBy._id.toString())
+      ).size,
+    };
+
+    const customerAcquisition = getCustomerAcquisitionData(orders);
+
+    res.json({
+      // Core metrics
+      ...totals,
+
+      // Detailed data
+      productDistributionByCategory,
+      productSalesByCategory,
+      revenueData,
+      customerData,
+      orderStatusData,
+      topSellingProducts,
+      customerAcquisition,
+    });
+  } catch (error) {
+    console.error("Dashboard error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Helper Functions
+// 1. Product distribution by category
+function getProductDistributionByCategory(products) {
+  const categorySales = products.reduce((acc, product) => {
+    const mergedCategory = product.categories
+      ? product.categories.map((c) => c.name).join(" > ")
+      : "Uncategorized";
+    acc[mergedCategory] = (acc[mergedCategory] || 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(categorySales).map(([category, productCount]) => ({
+    category,
+    productCount,
+  }));
+}
+
+function getProductSalesByCategory(orders, products) {
+  const categoryCounts = {};
+
+  // Create a product map with categories
+  const productMap = products.reduce((map, product) => {
+    map[product._id.toString()] = {
+      categories: product.categories || [],
+      variants: (product.variants || []).map((v) => ({
+        ...v,
+        _id: v._id.toString(),
+      })),
+    };
+    return map;
+  }, {});
+
+  orders.forEach((order) => {
+    order.orderItems.forEach((item) => {
+      const product = productMap[item.product];
+      if (product) {
+        // Get category path or default to "Uncategorized"
+        const categoryPath = product.categories.length
+          ? product.categories.map((c) => c.name).join(" > ")
+          : "Uncategorized";
+
+        // Add the quantity sold to this category
+        categoryCounts[categoryPath] =
+          (categoryCounts[categoryPath] || 0) + (item.quantity || 0);
+      }
+    });
+  });
+
+  // Convert to array with name and value (count)
+  return Object.entries(categoryCounts).map(([name, value]) => ({
+    name,
+    value,
+  }));
+}
+// 3. Revenue data
+function getRevenueData(orders) {
+  const monthlyRevenue = {};
+  const dailyRevenue = {};
+
+  orders.forEach((order) => {
+    const date = new Date(order.createdAt);
+    const month = date.toLocaleString("default", {
+      month: "short",
+      year: "numeric",
+    });
+    const day = date.toLocaleString("default", {
+      day: "numeric",
+      month: "short",
+    });
+
+    // Monthly
+    monthlyRevenue[month] = (monthlyRevenue[month] || 0) + order.totalAmount;
+
+    // Daily
+    dailyRevenue[day] = (dailyRevenue[day] || 0) + order.totalAmount;
+  });
+
+  return {
+    monthly: Object.entries(monthlyRevenue).map(([period, amount]) => ({
+      period,
+      amount,
+    })),
+    daily: Object.entries(dailyRevenue).map(([period, amount]) => ({
+      period,
+      amount,
+    })),
+  };
+}
+
+// 4. Customer data
+function getCustomerData(orders) {
+  const customers = {};
+  const customerOrders = {};
+  const firstPurchaseDates = {};
+  const lastPurchaseDates = {};
+
+  orders.forEach((order) => {
+    const customerId = order.orderBy._id.toString();
+    const customerEmail = order.orderBy.email;
+
+    // Track order count
+    customerOrders[customerId] = (customerOrders[customerId] || 0) + 1;
+
+    // Track first and last purchase dates
+    const orderDate = new Date(order.createdAt);
+    if (
+      !firstPurchaseDates[customerId] ||
+      orderDate < new Date(firstPurchaseDates[customerId])
+    ) {
+      firstPurchaseDates[customerId] = order.createdAt;
+    }
+    if (
+      !lastPurchaseDates[customerId] ||
+      orderDate > new Date(lastPurchaseDates[customerId])
+    ) {
+      lastPurchaseDates[customerId] = order.createdAt;
+    }
+
+    // Track customer details
+    if (!customers[customerId]) {
+      customers[customerId] = {
+        id: customerId,
+        name: order.orderBy.name,
+        email: customerEmail,
+        totalSpent: 0,
+        orderCount: 0,
+      };
+    }
+    customers[customerId].totalSpent += order.totalAmount;
+    customers[customerId].orderCount = customerOrders[customerId];
+  });
+
+  // Add first/last purchase dates to customer data
+  Object.keys(customers).forEach((customerId) => {
+    customers[customerId].firstPurchase = firstPurchaseDates[customerId];
+    customers[customerId].lastPurchase = lastPurchaseDates[customerId];
+  });
+
+  return {
+    totalCustomers: Object.keys(customers).length,
+    repeatCustomers: Object.values(customerOrders).filter((count) => count > 1)
+      .length,
+    customerLifetimeValue:
+      Object.values(customers).reduce(
+        (sum, customer) => sum + customer.totalSpent,
+        0
+      ) / Object.keys(customers).length,
+    customerDetails: Object.values(customers),
+  };
+}
+
+// 5. Order status data
+function getOrderStatusData(orders) {
+  const statusCounts = {};
+
+  orders.forEach((order) => {
+    statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
+  });
+
+  return Object.entries(statusCounts).map(([status, count]) => ({
+    status,
+    count,
+    percentage: ((count / orders.length) * 100).toFixed(2) + "%",
+  }));
+}
+function getCustomerAcquisitionData(orders) {
+  const acquisitionData = {};
+
+  orders.forEach((order) => {
+    const month = new Date(order.createdAt).toLocaleString("default", {
+      month: "short",
+      year: "numeric",
+    });
+    acquisitionData[month] = acquisitionData[month] || new Set();
+    acquisitionData[month].add(order.orderBy._id.toString());
+  });
+
+  return Object.entries(acquisitionData).map(([month, customerSet]) => ({
+    month,
+    newCustomers: customerSet.size,
+  }));
+}
+// 6. Top selling products
+function getTopSellingProducts(products) {
+  return products
+    .filter((product) => product.sold > 0)
+    .sort((a, b) => b.sold - a.sold)
+    .slice(0, 20) // Top 20
+    .map((product) => ({
+      id: product._id,
+      name: product.name,
+      sold: product.sold,
+      brand: product.seller?.brandName,
+      image: product.variants[0]?.images[0]?.url || [], // Assuming images are in the first variant
+      revenue: product.sold * (product.variants?.[0]?.price || 0), // Approximate revenue
+    }));
+}
+
 export {
   adminLogin,
   adminLogout,
@@ -309,4 +420,5 @@ export {
   getAllAdmins,
   addAdmin,
   getSingleAdmin,
+  AppDashboardInformation,
 };

@@ -4,12 +4,15 @@ import {
   adminLogin,
   adminLogout,
   adminUpdateCredentials,
+  AppDashboardInformation,
   getAllAdmins,
   getSingleAdmin,
 } from "../controllers/adminAuth.controllers.js";
 import { verifyAdmin } from "../middlwares/verifyAdmin.js";
 
 const router = express.Router();
+
+router.get("/app-insights", AppDashboardInformation);
 
 router.get("/single", verifyAdmin, getSingleAdmin);
 router.post("/login", adminLogin);
