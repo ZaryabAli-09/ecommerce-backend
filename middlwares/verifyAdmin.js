@@ -5,7 +5,7 @@ import { Admin } from "../models/admin.models.js";
 async function verifyAdmin(req, res, next) {
   try {
     console.log("*******Admin*******");
-    const token = req.cookies.access_token;
+    const token = req.cookies.admin_access_token;
 
     // Check if token is present
     if (!token) {

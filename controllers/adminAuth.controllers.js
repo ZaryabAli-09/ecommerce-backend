@@ -37,7 +37,7 @@ async function adminLogin(req, res, next) {
 
     res
       .status(200)
-      .cookie("access_token", access_token, {
+      .cookie("admin_access_token", access_token, {
         httpOnly: true,
         secure: true,
         sameSite: "None",
@@ -50,7 +50,7 @@ async function adminLogin(req, res, next) {
 async function adminLogout(req, res, next) {
   try {
     res
-      .clearCookie("access_token", {
+      .clearCookie("admin_access_token", {
         httpOnly: true,
         secure: true,
         sameSite: "None",
