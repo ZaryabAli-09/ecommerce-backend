@@ -187,12 +187,12 @@ async function login(req, res, next) {
 
     res
       .status(200)
-      .cookie("access_token", access_token, {
+      .cookie("seller_access_token", access_token, {
         httpOnly: true,
         secure: true,
         sameSite: "None",
       })
-      .cookie("refresh_token", refresh_token, {
+      .cookie("seller_refresh_token", refresh_token, {
         httpOnly: true,
         secure: true,
         sameSite: "None",
@@ -408,12 +408,12 @@ async function resendOtp(req, res, next) {
 async function logout(req, res, next) {
   try {
     res
-      .clearCookie("access_token", {
+      .clearCookie("seller_access_token", {
         httpOnly: true,
         secure: true,
         sameSite: "None",
       })
-      .clearCookie("refresh_token", {
+      .clearCookie("seller_refresh_token", {
         httpOnly: true,
         secure: true,
         sameSite: "None",

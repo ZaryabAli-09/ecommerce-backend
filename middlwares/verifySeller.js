@@ -4,8 +4,8 @@ import { Seller } from "../models/seller.model.js";
 
 async function verifySeller(req, res, next) {
   try {
-    const token = req.cookies.access_token;
-    const refreshToken = req.cookies.refresh_token;
+    const token = req.cookies.seller_access_token;
+    const refreshToken = req.cookies.seller_refresh_token;
 
     // Check if token is present
     if (!token && !refreshToken) {
@@ -67,7 +67,7 @@ async function verifySeller(req, res, next) {
       );
 
       // Set the new access token in cookies
-      res.cookie("access_token", newAccessToken, {
+      res.cookie("seller_access_token", newAccessToken, {
         httpOnly: true,
         secure: true,
         sameSite: "None",
