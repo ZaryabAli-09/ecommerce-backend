@@ -311,155 +311,138 @@ const sellerDashboardInformation = async (req, res) => {
   try {
     const sellerId = req.params.sellerId;
 
-    // Fetch products and orders for the seller
+    // Fetch products and non-canceled orders for the seller
     const products = await Product.find({ seller: sellerId }).populate(
       "categories",
       "name"
-    ); // Populate 'categories' and select only 'name'
+    );
+    const orders = await Order.find({
+      seller: sellerId,
+      status: { $ne: "canceled" }, // Exclude canceled orders
+    })
+      .populate("orderBy", "name email")
+      .populate("seller");
 
-    const orders = await Order.find({ seller: sellerId }).populate(
-      "orderBy",
-      "name email"
-    ); // Populate buyer details
-
-    // Calculate total sales by summing up the totalAmount of all orders
+    // Calculate metrics
     const totalSellerSales = orders.reduce(
       (total, order) => total + order.totalAmount,
       0
     );
-
-    // Calculate total number of customers (unique customers who placed orders)
     const uniqueCustomers = new Set(
       orders.map((order) => order.orderBy._id.toString())
     );
     const totalSellerCustomers = uniqueCustomers.size;
-
-    // Calculate number of products and orders
     const totalSellerOrders = orders.length;
     const totalSellerProduct = products.length;
 
+    // Get top 5 selling products by 'sold' field
+    const topSellingProducts = products
+      .sort((a, b) => b.sold - a.sold)
+      .slice(0, 5)
+      .map((product) => ({
+        id: product._id,
+        name: product.name,
+        image: product.variants[0]?.images[0]?.url || "",
+        sold: product.sold,
+        revenue: product.variants.reduce(
+          (sum, variant) => sum + variant.price * (variant.sold || 0),
+          0
+        ),
+      }));
+
     // Extract data for charts
-    const salesDataArray = extractSalesData(orders);
-    const productDataArray = extractProductData(orders, products);
-    const orderStatusDataArray = extractOrderStatusData(orders);
-    const userActivityDataArray = extractUserActivityData(orders);
-    const productCategoryDataArray = extractProductCategoryData(
-      orders,
-      products
-    );
-    const totalSellerProductCategories =
-      extractTotalSellerProductCategoryData(products);
+    const monthlySalesData = extractMonthlySalesData(orders);
+    const orderStatusData = await extractOrderStatusData(orders[0].seller._id);
+    const productCategoryData = extractProductCategoryData(orders, products);
+    const productDistributionData = extractProductDistributionData(products);
 
     res.json({
       totalSellerProduct,
       totalSellerOrders,
       totalSellerCustomers,
       totalSellerSales,
-      salesDataArray,
-      productDataArray,
-      orderStatusDataArray,
-      userActivityDataArray,
-      productCategoryDataArray,
-      totalSellerProductCategories,
-      orders, // Return orders directly (no suborders)
+      topSellingProducts,
+      monthlySalesData,
+      orderStatusData,
+      productCategoryData,
+      productDistributionData,
+      avgOrderValue:
+        totalSellerOrders > 0 ? totalSellerSales / totalSellerOrders : 0,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-//Helper functions for data extraction
-const extractSalesData = (orders) => {
-  const salesData = orders.reduce((acc, order) => {
+// Helper Functions
+const extractMonthlySalesData = (orders) => {
+  const monthlyData = {};
+  orders.forEach((order) => {
     const month = new Date(order.createdAt).toLocaleString("default", {
       month: "short",
     });
-    acc[month] = (acc[month] || 0) + order.totalAmount;
-    return acc;
-  }, {});
-  return Object.keys(salesData).map((month) => ({
-    name: month,
-    sales: salesData[month],
-  }));
-};
-
-const extractProductData = (orders, products) => {
-  const productSales = orders.reduce((acc, order) => {
-    order.orderItems.forEach((item) => {
-      const product = products.find(
-        (p) => p._id.toString() === item.product.toString()
-      );
-      if (product) {
-        acc[product.name] = (acc[product.name] || 0) + item.quantity;
-      }
-    });
-    return acc;
-  }, {});
-  return Object.keys(productSales).map((productName) => ({
-    name: productName,
-    sales: productSales[productName],
-  }));
-};
-const extractOrderStatusData = (orders) => {
-  const orderStatusCounts = orders.reduce((acc, order) => {
-    acc[order.status] = (acc[order.status] || 0) + 1;
-    return acc;
-  }, {});
-  return Object.keys(orderStatusCounts).map((status) => ({
-    name: status,
-    value: orderStatusCounts[status],
-  }));
-};
-const extractUserActivityData = (orders) => {
-  const userActivityData = orders.reduce((acc, order) => {
-    const month = new Date(order.createdAt).toLocaleString("default", {
-      month: "short",
-    });
-    acc[month] = acc[month] || new Set();
-    acc[month].add(order.orderBy._id.toString());
-    return acc;
-  }, {});
-  return Object.keys(userActivityData).map((month) => ({
-    name: month,
-    activeUsers: userActivityData[month].size,
-  }));
-};
-
-const extractTotalSellerProductCategoryData = (sellerProducts) => {
-  const categorySales = sellerProducts.reduce((acc, product) => {
-    const mergedCategory = product.categories
-      .map((c) => c.name) // Extract category names
-      .join(" > "); // Join with " > " separator
-    acc[mergedCategory] = (acc[mergedCategory] || 0) + 1; // Count each product in the category
-    return acc;
-  }, {});
-
-  return Object.keys(categorySales).map((category) => ({
-    name: category,
-    value: categorySales[category],
+    monthlyData[month] = (monthlyData[month] || 0) + order.totalAmount;
+  });
+  return Object.entries(monthlyData).map(([month, sales]) => ({
+    month,
+    sales,
+    revenue: sales,
   }));
 };
 
 const extractProductCategoryData = (orders, products) => {
-  const categorySales = orders.reduce((acc, order) => {
+  const categorySales = {};
+  const productMap = products.reduce((map, product) => {
+    map[product._id.toString()] = product;
+    return map;
+  }, {});
+
+  orders.forEach((order) => {
     order.orderItems.forEach((item) => {
-      const product = products.find(
-        (p) => p._id.toString() === item.product.toString()
-      );
+      const product = productMap[item.product.toString()];
       if (product) {
-        const mergedCategory = product.categories
-          .map((c) => c.name) // Extract category names
-          .join(" > "); // Join with " > " separator
-        acc[mergedCategory] = (acc[mergedCategory] || 0) + item.quantity;
+        const categoryPath = product.categories?.length
+          ? product.categories.map((c) => c.name).join(" > ")
+          : "Uncategorized";
+        categorySales[categoryPath] =
+          (categorySales[categoryPath] || 0) + item.quantity;
       }
     });
+  });
+  return Object.entries(categorySales).map(([category, quantity]) => ({
+    category,
+    quantity,
+  }));
+};
+
+const extractProductDistributionData = (products) => {
+  const categoryCount = {};
+  products.forEach((product) => {
+    const categoryPath = product.categories?.length
+      ? product.categories.map((c) => c.name).join(" > ")
+      : "Uncategorized";
+    categoryCount[categoryPath] = (categoryCount[categoryPath] || 0) + 1;
+  });
+  return Object.entries(categoryCount).map(([category, count]) => ({
+    category,
+    count,
+  }));
+};
+
+const extractOrderStatusData = async (sellerId) => {
+  const ordersList = await Order.find({
+    seller: sellerId,
+  }).populate("orderBy", "name email");
+
+  const statusCount = ordersList.reduce((acc, order) => {
+    acc[order.status] = (acc[order.status] || 0) + 1;
     return acc;
   }, {});
 
-  return Object.keys(categorySales).map((category) => ({
-    name: category,
-    value: categorySales[category],
+  return Object.entries(statusCount).map(([status, count]) => ({
+    status,
+    count,
   }));
 };
 

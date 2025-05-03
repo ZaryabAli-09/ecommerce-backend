@@ -204,7 +204,6 @@ const getSellerReviews = async (req, res, next) => {
       dateFilter, // "thisWeek", "thisMonth", "lastMonth"
     } = req.query;
 
-    console.log(req.query);
     // Base query to fetch reviews
     const query = {};
 
@@ -212,7 +211,7 @@ const getSellerReviews = async (req, res, next) => {
     if (replyStatus === "replied") {
       query["sellerReply.text"] = { $exists: true, $ne: null };
     } else if (replyStatus === "not replied") {
-      query["sellerReply.text"] = { $exists: false };
+      query["sellerReply.text"] = null;
     }
 
     // Date filtering logic
