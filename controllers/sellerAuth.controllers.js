@@ -124,12 +124,23 @@ async function register(req, res, next) {
         expiresIn: "1d",
       }
     );
+    const emailTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h1 style="color: #2d3748;">LOGO</h1>
+      <h2 style="color: #4a5568;">Otp Verification!</h2>
+      <p style="color: #4a5568;">Please use the following OTP to verify your email address.</p>
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin: 5px 0;"><strong>Otp:</strong>  ${verificationOtp}</p>
+      </div>
+      
+    </div>
+  `;
 
-    await sendEmail(
+    await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
       email,
       "You OTP for email verification",
-      `Your OTP is ${verificationOtp}, Please verify your account!`
+      emailTemplate
     );
 
     res
@@ -250,11 +261,22 @@ async function forgotPassword(req, res, next) {
 
     // *** send email with link to reset password ***
 
+    const emailTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h1 style="color: #2d3748;">LOGO</h1>
+      <h2 style="color: #4a5568;">Reset Your Password</h2>
+      <p style="color: #4a5568;">Click the link below to reset your password:</p>
+      <a href="${process.env.SELLER_FRONTEND_DOMAIN_URL}/reset-password?resetPasswordToken=${resetPasswordToken}" style="display: inline-block; background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 15px;">Reset Password</a>
+      <p style="color: #4a5568; margin-top: 20px;">If you did not request this, please ignore this email.</p>
+      <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Admin Team</p>
+    </div>
+  `;
+
     await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
       email,
       "Reset Your Password",
-      `<h3>Reset Your password by clicking the link below</h3> <a href="${process.env.FRONTEND_DOMAIN_URL}/reset-password?resetPasswordToken=${resetPasswordToken}">reset password</a>`
+      emailTemplate
     );
 
     return res
@@ -388,13 +410,23 @@ async function resendOtp(req, res, next) {
 
     // Send the new OTP to the email
 
-    console.log(email, process.env.SMTP_GMAIL_USER);
+    const emailTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h1 style="color: #2d3748;">LOGO</h1>
+      <h2 style="color: #4a5568;">Otp Verification!</h2>
+      <p style="color: #4a5568;">Please use the following OTP to verify your email address.</p>
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin: 5px 0;"><strong>Otp:</strong> ${otp}</p>
+      </div>
+      
+    </div>
+  `;
 
-    await sendEmail(
+    await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
       email,
       "Resend OTP",
-      `Please use the following OTP to verify your email address: ${otp}`
+      emailTemplate
     );
 
     res.status(200).json({
@@ -455,6 +487,7 @@ async function approveSeller(req, res, next) {
     // Send email with credentials
     const emailTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h1 style="color: #2d3748;">LOGO</h1>
         <h2 style="color: #4a5568;">Your Seller Account Has Been Approved!</h2>
         <p style="color: #4a5568;">Hello ${seller.brandName},</p>
         <p style="color: #4a5568;">We're excited to inform you that your seller account has been approved. You can now log in to your seller dashboard and start managing your products.</p>
@@ -467,7 +500,7 @@ async function approveSeller(req, res, next) {
         <p style="color: #4a5568;">For security reasons, we recommend changing your password after logging in.</p>
         <a href="${process.env.SELLER_FRONTEND_LOGIN_DOMAIN_URL}" style="display: inline-block; background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 15px;">Go to Seller Dashboard</a>
         
-        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>The Admin Team</p>
+        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Admin Team </p>
       </div>
     `;
 
@@ -519,6 +552,7 @@ async function rejectSeller(req, res, next) {
     // Send rejection email
     const rejectionTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h1 style="color: #2d3748;">LOGO</h1>
         <h2 style="color: #4a5568;">Your Seller Account Application</h2>
         <p style="color: #4a5568;">Hello ${brandName},</p>
         <p style="color: #4a5568;">We regret to inform you that your seller account application has been rejected and your account has been removed from our system.</p>
@@ -533,7 +567,7 @@ async function rejectSeller(req, res, next) {
           registering again as a seller.
         </p>
         
-        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>The Admin Team</p>
+        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Admin Team</p>
       </div>
     `;
 

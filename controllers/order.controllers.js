@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/apiResponse.js";
 import sendEmail from "../utils/sendEmail.js";
 import { Seller } from "../models/seller.model.js";
 import mongoose from "mongoose";
+import sendEmailHtml from "../utils/sendEmailHtml.js";
 
 async function newOrder(req, res, next) {
   try {
@@ -139,21 +140,92 @@ async function newOrder(req, res, next) {
 
     // Notify the seller
     const seller = await Seller.findById(sellerId).select("email").exec();
+
+    const emailTemplate = `
+    <div style="font-family: Arial, sans-serif;   max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h1 style="color: #2d3748;">LOGO</h1>
+      <h2 style="color: #4a5568;">Order Information</h2>
+      <p style="color: #4a5568;">You have received a new order.</p>
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin: 5px 0;"><strong>Order ID:</strong>  ${order._id}</p>
+        <p style="margin: 5px 0;"><strong>Total Amount:</strong>  ${
+          order.totalAmount
+        }</p>
+        <p style="margin: 5px 0;"><strong>Payment Method:</strong>  ${
+          order.paymentMethod
+        }</p>
+        <p style="margin: 5px 0;"><strong>Custmer Email:</strong>  ${
+          req.buyer?.email
+        }</p>
+        <p style="margin: 5px 0;"><strong>Shipping Address:</strong></p>
+        <p style="margin: 5px 0;">${shippingAddress.street}</p>
+        <p style="margin: 5px 0;">${shippingAddress.city}, ${
+      shippingAddress.state
+    }</p>
+        <p style="margin: 5px 0;">${shippingAddress.postalCode}</p>
+        <p style="margin: 5px 0;">${shippingAddress.country}</p>
+        <p style="margin: 5px 0;"><strong>Order Items:</strong></p>
+        <ul style="list-style-type: none; padding: 0;">
+          ${populatedOrderItems
+            .map(
+              (item) =>
+                `<li style="margin: 5px 0;">${item.product.name} - ${item.quantity} pcs</li>`
+            )
+            .join("")}
+        </ul>
+      </div>  
+      
+    </div>
+  `;
+
+    const CustomerEmailTemplate = `
+  <div style="font-family: Arial, sans-serif;   max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+    <h1 style="color: #2d3748;">LOGO</h1>
+    <h2 style="color: #4a5568;">Order Information</h2>
+    <p style="color: #4a5568;">Your order has been placed successfully.</p>
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+      <p style="margin: 5px 0;"><strong>Order ID:</strong>  ${order._id}</p>
+      <p style="margin: 5px 0;"><strong>Total Amount:</strong>  ${
+        order.totalAmount
+      }</p>
+      <p style="margin: 5px 0;"><strong>Payment Method:</strong>  ${
+        order.paymentMethod
+      }</p>
+      <p style="margin: 5px 0;"><strong>Shipping Address:</strong></p>
+      <p style="margin: 5px 0;">${shippingAddress.street}</p>
+      <p style="margin: 5px 0;">${shippingAddress.city}, ${
+      shippingAddress.state
+    }</p>
+      <p style="margin: 5px 0;">${shippingAddress.postalCode}</p>
+      <p style="margin: 5px 0;">${shippingAddress.country}</p>
+      <p style="margin: 5px 0;"><strong>Order Items:</strong></p>
+      <ul style="list-style-type: none; padding: 0;">
+        ${populatedOrderItems
+          .map(
+            (item) =>
+              `<li style="margin: 5px 0;">${item.product.name} - ${item.quantity} pcs</li>`
+          )
+          .join("")}
+      </ul>
+    </div>  
+    
+  </div>
+`;
     if (seller) {
-      await sendEmail(
+      await sendEmailHtml(
         process.env.SMTP_GMAIL_USER,
         seller.email,
         "New Order Received",
-        `You have received a new order (ID: ${order._id}) with a total amount of $${order.totalAmount}.`
+        emailTemplate
       );
     }
 
     // Notify the buyer
-    await sendEmail(
+    await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
       req.buyer.email,
       "Order Placed Successfully",
-      `Your order (ID: ${order._id}) has been placed successfully. Total amount: $${order.totalAmount}.`
+      CustomerEmailTemplate
     );
 
     return res
@@ -274,16 +346,58 @@ const updateOrderStatus = async (req, res, next) => {
         canceled: "has been canceled",
       };
 
-      await sendEmail(
+      const OrderStatusTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h1 style="color: #2d3748;">LOGO</h1>
+        <h2 style="color: #4a5568;">Order Status Updated</h2>
+        
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Order ID:</strong> ${order._id}</p>
+          <p style="margin: 5px 0;"><strong>Status:</strong> 
+            <span style="color: ${
+              order.status === "Shipped"
+                ? "#3182ce"
+                : order.status === "Delivered"
+                ? "#38a169"
+                : order.status === "Cancelled"
+                ? "#e53e3e"
+                : "#4a5568"
+            }; font-weight: bold;">
+              ${order.status}
+            </span>
+          </p>
+          
+          ${
+            order.status === "Shipped"
+              ? `
+            <p style="margin: 5px 0;"><strong>Tracking Number:</strong> ${order._id}</p>
+          `
+              : ""
+          }
+          
+          ${
+            order.status === "Cancelled"
+              ? `
+            <p style="margin: 10px 0; color: #e53e3e;">Your order has been cancelled.</p>
+          `
+              : ""
+          }
+        </div>
+    
+        <div style="margin-top: 20px;">
+          <p style="color: #4a5568;">
+            For any help or queries, contact us at: <br>
+            <strong>Phone:</strong> 0009998888 <br>
+            <strong>Email:</strong> khanzaryab249@gmail.com
+          </p>
+        </div>
+      </div>
+    `;
+      await sendEmailHtml(
         process.env.SMTP_GMAIL_USER,
         order.orderBy.email,
         `Order ${status === "canceled" ? "Cancellation" : "Update"}`,
-        `Your order (ID: ${order._id}) ${statusMessages[status]}.` +
-          (status === "shipped"
-            ? ` Tracking number: ${
-                order.trackingNumber || "will be provided soon"
-              }`
-            : "")
+        OrderStatusTemplate
       );
 
       return res

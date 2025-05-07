@@ -32,7 +32,11 @@ router.get("/pending", verifyAdmin, getPendingSellers);
 router.delete("/delete/:sellerId", verifyAdmin, deleteSeller);
 router.get("/billingInfo", verifyAdmin, getSellerBillingInfo);
 // brand / seller routes
-router.get("/dashboard-information/:sellerId", sellerDashboardInformation);
+router.get(
+  "/dashboard-information/:sellerId",
+  verifySeller,
+  sellerDashboardInformation
+);
 router.get("/single/:sellerId", verifySeller, getSingleSeller);
 router.put("/update/:sellerId", verifySeller, updateSeller);
 router.patch(

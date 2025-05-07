@@ -76,12 +76,28 @@ async function verifyEmail(req, res, next) {
     await buyer.save();
 
     // *** send welcome email ***
+    const verificationSuccessTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h1 style="color: #2d3748;">LOGO</h1>
+      <h2 style="color: #4a5568;">Email Verified Successfully!</h2>
+      
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin: 5px 0; text-align: center;">
+          <strong>${buyer.email}</strong> has been verified.
+        </p>
+      </div>
+      
+      <p style="color: #4a5568; text-align: center;">
+        Your account is now fully activated.
+      </p>
+    </div>
+    `;
 
-    await sendEmail(
+    await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
       buyer.email,
       "Account Verified Successfully",
-      "Welcome, Your account is successfully verified!"
+      verificationSuccessTemplate
     );
 
     // *** send success response ***
@@ -152,12 +168,27 @@ async function register(req, res, next) {
       }
     );
 
+    const otpVerificationTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h1 style="color: #2d3748;">LOGO</h1>
+      <h2 style="color: #4a5568;">OTP Verification</h2>
+      
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin: 5px 0; text-align: center;">
+          <strong>Otp</strong>: ${verificationOtp}.
+        </p>
+      </div>
+      
+      <p style="color: #4a5568; text-align: center;">
+Use above otp to verify your account.      </p>
+    </div>
+    `;
     // *** send email with verification otp ***
-    await sendEmail(
+    await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
       email,
       "You OTP for email verification.",
-      `Your OTP is ${verificationOtp}, Please verify your account!`
+      otpVerificationTemplate
     );
 
     // *** send success response from API ***
@@ -276,11 +307,26 @@ async function login(req, res, next) {
         }
       );
 
-      await sendEmail(
+      const otpVerificationTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h1 style="color: #2d3748;">LOGO</h1>
+        <h2 style="color: #4a5568;">OTP Verification</h2>
+        
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0; text-align: center;">
+            <strong>Otp</strong>: ${verificationOtp}.
+          </p>
+        </div>
+        
+        <p style="color: #4a5568; text-align: center;">
+  Use above otp to verify your account.      </p>
+      </div>
+      `;
+      await sendEmailHtml(
         process.env.SMTP_GMAIL_USER,
         email,
         "You OTP for email verification",
-        `Your OTP is ${verificationOtp}, Please verify your account!`
+        otpVerificationTemplate
       );
 
       const verificationToken = jwt.sign(
@@ -351,12 +397,44 @@ async function forgotPassword(req, res, next) {
     );
 
     // *** send email with link to reset password ***
+    const resetPasswordTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h1 style="color: #2d3748; text-align: center;">LOGO</h1>
+      <h3 style="color: #4a5568; text-align: center;">Password Reset Request</h3>
+      
+      <p style="color: #4a5568; text-align: center;">
+        We received a request to reset your password. Click the button below to proceed:
+      </p>
+      
+      <div style="text-align: center; margin: 25px 0;">
+        <a href="${process.env.FRONTEND_DOMAIN_URL}/reset-password?resetPasswordToken=${resetPasswordToken}" 
+           style="display: inline-block; 
+                  background-color: #4299e1; 
+                  color: white; 
+                  padding: 12px 24px; 
+                  text-decoration: none; 
+                  border-radius: 4px; 
+                  font-weight: bold;
+                  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  transition: background-color 0.3s;">
+          Reset Password
+        </a>
+      </div>
+      
+      <p style="color: #718096; font-size: 14px; text-align: center;">
+        If you didn't request this, please ignore this email.
+        <br>
+        This link will expire in 1 hour.
+      </p>
+    </div>
+    `;
 
+    // Usage:
     await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
       email,
       "Reset Your Password",
-      `<h3>Reset Your password by clicking the link below</h3> <a href="${process.env.FRONTEND_DOMAIN_URL}/reset-password?resetPasswordToken=${resetPasswordToken}">reset password</a>`
+      resetPasswordTemplate
     );
 
     return res
@@ -435,11 +513,47 @@ async function resetPassword(req, res, next) {
 
     // *** send reset password email ***
 
+    const passwordResetSuccessTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h1 style="color: #2d3748; text-align: center;">LOGO</h1>
+      <h2 style="color: #4a5568; text-align: center;">Password Reset Successful</h2>
+      
+      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0; color: #38a169; font-weight: bold;">
+          ✓ Your password was successfully updated
+        </p>
+      </div>
+      
+      <p style="color: #4a5568; text-align: center;">
+        You can now log in to your account with your new password.
+      </p>
+      
+      <div style="text-align: center; margin: 25px 0;">
+        <a href="${process.env.FRONTEND_DOMAIN_URL}/login" 
+           style="display: inline-block; 
+                  background-color: #4299e1; 
+                  color: white; 
+                  padding: 12px 24px; 
+                  text-decoration: none; 
+                  border-radius: 4px; 
+                  font-weight: bold;">
+          Go to Login Page
+        </a>
+      </div>
+      
+      <p style="color: #718096; font-size: 14px; text-align: center;">
+        If you didn't make this change, please contact us immediately at:<br>
+        <strong>0009998888</strong> or <strong>khanzaryab249@gmail.com</strong>
+      </p>
+    </div>
+    `;
+
+    // Usage:
     await sendEmail(
       process.env.SMTP_GMAIL_USER,
       buyer.email,
       "Password Reset Successful",
-      "Your password was successfully reset"
+      passwordResetSuccessTemplate
     );
 
     return res

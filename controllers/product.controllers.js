@@ -390,7 +390,8 @@ async function getAllProducts(req, res, next) {
   try {
     const products = await Product.find()
       .populate("reviews")
-      .populate("seller");
+      .populate("seller")
+      .sort({ createdAt: -1 }); // Sort by newest first (-1 for descending)
 
     res
       .status(200)
@@ -428,6 +429,7 @@ async function getAllProductsWithFilteringAndPagination(req, res, next) {
       .populate("reviews")
       .populate("seller")
       .populate("categories", "name")
+      .sort({ createdAt: -1 }) // Sort by newest first (-1 for descending)
       .skip(skip)
       .limit(Number(limit));
 
@@ -482,6 +484,7 @@ async function getSellerProducts(req, res, next) {
     const skip = (page - 1) * limit;
     const products = await Product.find(query)
       .populate("categories", "name")
+      .sort({ createdAt: -1 }) // Sort by newest first (-1 for descending)
       .skip(skip)
       .limit(Number(limit));
 

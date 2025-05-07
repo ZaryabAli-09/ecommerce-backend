@@ -309,7 +309,15 @@ const uploadImage = async (req, res, next) => {
 
 const sellerDashboardInformation = async (req, res) => {
   try {
-    const sellerId = req.params.sellerId;
+    const sellerId = req.params.sellerId; // Get seller ID from the request
+    if (!sellerId) {
+      throw new ApiError(400, "Seller ID is required");
+    }
+    // Check if seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      throw new ApiError(404, "Seller not found");
+    }
 
     // Fetch products and non-canceled orders for the seller
     const products = await Product.find({ seller: sellerId }).populate(
@@ -352,7 +360,7 @@ const sellerDashboardInformation = async (req, res) => {
 
     // Extract data for charts
     const monthlySalesData = extractMonthlySalesData(orders);
-    const orderStatusData = await extractOrderStatusData(orders[0].seller._id);
+    const orderStatusData = await extractOrderStatusData(sellerId);
     const productCategoryData = extractProductCategoryData(orders, products);
     const productDistributionData = extractProductDistributionData(products);
 

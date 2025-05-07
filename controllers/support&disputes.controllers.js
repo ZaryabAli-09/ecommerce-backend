@@ -30,16 +30,21 @@ export const createDispute = async (req, res, next) => {
 
     // Prepare Email
     const emailTemplate = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #2d3748;">LOGO</h1>
           <h2 style="color: #4a5568;">Support Request Received</h2>
-          <p>Hello,</p>
-          <p>Thank you for reaching out to us. We have received your support request regarding:</p>
-          <p><strong>Subject:</strong> ${subject}</p>
-          <p><strong>Message:</strong> ${message}</p>
-          <p><strong>Status:</strong> ${dispute.status}</p>
-          <p>Our support team will get back to you as soon as possible.</p>
+        <p style="color: #4a5568;">Hello ,</p>
+          <p style="color: #4a5568;">Thank you for reaching out to us. We have received your support request regarding:</p>
+
+           <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Subject:</strong> ${subject}</p>
+          <p style="margin: 5px 0;"><strong>message:</strong> ${message}</p>
+          <p style="margin: 5px 0;"><strong>Current Status:</strong> ${dispute.status}</p>
+
+        </div>
+          <p style="color: #4a5568;">We are currently reviewing your request and will get back to you shortly.</p>
           <br />
-          <p style="color: #718096;">Best Regards,<br/>Support Team</p>
+        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Support Team </p>
         </div>
       `;
 
@@ -51,17 +56,20 @@ export const createDispute = async (req, res, next) => {
     );
 
     // Prepare Email for the Admin
+
     const emailTemplateForAdmin = `
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
-  <h2 style="color: #4a5568;">New Support Request Submitted</h2>
-  <p>A new support/dispute request has been submitted. Here are the details:</p>
-  <p><strong>Submitted By:</strong> ${fromType}</p>
-  <p><strong>Email:</strong> ${email}</p>
-  <p><strong>Subject:</strong> ${subject}</p>
-  <p><strong>Message:</strong> ${message}</p>
-  <p><strong>Current Status:</strong> ${dispute.status}</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #2d3748;">LOGO</h1>
+          <p style="color: #4a5568;">A new support/dispute request has been submitted. Here are the details:</p>
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;"
+             <p style="margin: 5px 0;"><strong>Subject:</strong> ${fromType}</p>
+             <p style="margin: 5px 0;"><strong>Subject:</strong> ${email}</p>
+             <p style="margin: 5px 0;"><strong>Subject:</strong> ${subject}</p>
+             <p style="margin: 5px 0;"><strong>message:</strong> ${message}</p>
+             <p style="margin: 5px 0;"><strong>Current Status:</strong> ${dispute.status}</p>
+        </div>
   <br />
-  <p style="color: #718096;">Please review and respond promptly.</p>
+          <p style="color: #4a5568;">Please review and repond.</p>
 </div>
 `;
 
@@ -128,14 +136,24 @@ export const updateDisputeStatus = async (req, res, next) => {
     }
 
     // Email template
+
     const emailTemplate = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
-        <h2 style="color: #4a5568;">Dispute Status Updated</h2>
-        <p>Hello,</p>
-        <p>Your dispute status has been updated to: <strong>${status}</strong>.</p>
-        <p>Thank you for your patience.</p>
-      </div>
-    `;
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+       <h1 style="color: #2d3748;">LOGO</h1>
+       <h2 style="color: #4a5568;">Dispute Status Updated</h2>
+       <p style="color: #4a5568;">Hello ,</p>
+       <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+      <p style="margin: 5px 0;">Your dispute status has been updated to: <strong>${status}</strong>.</p>
+      <p style="margin: 5px 0;"><strong>Dispute ID:</strong> ${disputeId}</p>
+      <p style="margin: 5px 0;"><strong>Subject:</strong> ${dispute.subject}</p>
+      <p style="margin: 5px 0;"><strong>Message:</strong> ${dispute.message}</p>
+
+    </div>
+      <p style="color: #4a5568;">Thank you for you patience.</p>
+      <br />
+    <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Support Team </p>
+    </div>
+  `;
 
     await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
@@ -143,17 +161,21 @@ export const updateDisputeStatus = async (req, res, next) => {
       "Dispute Status Update",
       emailTemplate
     );
+
     const adminNotificationTemplate = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
-      <h2 style="color: #4a5568;">Dispute Status Updated</h2>
-      <p>A dispute status has been updated by an admin.</p>
-      <p><strong>Updated Status:</strong> ${status}</p>
-      <p><strong>Dispute ID:</strong> ${disputeId}</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+     <h1 style="color: #2d3748;">LOGO</h1>
+     <h2 style="color: #4a5568;">Dispute Status Updated</h2>
+     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+    <p style="margin: 5px 0;">A dispute has been updated by support team: <strong>${status}</strong>.</p>
+ <p style="margin: 5px 0;"><strong>Dispute ID:</strong> ${disputeId}</p>
+      <p style="margin: 5px 0;"><strong>Subject:</strong> ${dispute.subject}</p>
+      <p style="margin: 5px 0;"><strong>Message:</strong> ${dispute.message}</p>
       <p>Please review if necessary.</p>
       <br/>
-      <p style="color: #718096;">System Notification</p>
-    </div>
-  `;
+  </div>
+  </div>
+`;
     await sendEmailHtml(
       process.env.SMTP_GMAIL_USER,
       process.env.SMTP_GMAIL_USER,
