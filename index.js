@@ -32,7 +32,13 @@ const app = express();
 
 // Define the port
 const PORT = process.env.PORT || 5000;
-const origins = ["http://localhost:5173", "http://localhost:5174"];
+const origins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "https://logoseller.netlify.app",
+  "https://logoadmin.netlify.app",
+];
 
 // Built-in Middlewares
 app.use(cors({ origin: origins, credentials: true })); // When credentials: true is set, it means that cookies will be included in cross-origin requests made by your frontend applicati
