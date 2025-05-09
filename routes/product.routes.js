@@ -22,7 +22,8 @@ router.put("/admin/update/:productId", verifyAdmin, adminUpdateProduct);
 // seller routes
 router.post("/create", uploadFileUsingMulter, verifySeller, createProduct);
 router.put("/update/:productId", verifySeller, updateProduct);
-router.get("/seller-products", verifySeller, getSellerProducts);
+router.get("/seller-products/:sellerId", getSellerProducts);
+
 router.delete("/delete/:productId", verifySeller, deleteProduct);
 router.delete("/deleteImg/:publicId", verifySeller, deleteProductImage);
 // buyer routes

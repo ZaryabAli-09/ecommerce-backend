@@ -449,7 +449,7 @@ async function getAllProductsWithFilteringAndPagination(req, res, next) {
 
 async function getSellerProducts(req, res, next) {
   try {
-    const sellerId = req.seller._id;
+    const sellerId = req.params.sellerId;
     const { page, limit, name, minPrice, maxPrice, minSold, dummy } = req.query;
 
     // Check if dummy data is requested

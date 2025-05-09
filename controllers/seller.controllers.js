@@ -53,6 +53,28 @@ async function getAllSellers(req, res, next) {
   }
 }
 
+async function getAllSellersBasicInfo(req, res, next) {
+  try {
+    const sellers = await Seller.find({}).select(
+      "brandName logo coverImage bussinessAddress brandDescription"
+    );
+
+    const totalSellers = await Seller.countDocuments({});
+
+    return res.status(200).json(
+      new ApiResponse(
+        {
+          sellers,
+          totalSellers,
+        },
+        "Sellers retrieved successfully"
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getSellerDetailsForAdminPanel(req, res, next) {
   try {
     const { sellerId } = req.params;
@@ -559,4 +581,5 @@ export {
   getSellerBillingInfo,
   getPendingSellers,
   getSellerDetailsForAdminPanel,
+  getAllSellersBasicInfo,
 };
