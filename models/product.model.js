@@ -31,13 +31,6 @@ const variantSchema = new mongoose.Schema({
       public_id: String,
     },
   ],
-  // images: {
-  //   type: [String],
-  // },
-  // imagesPublicIds: {
-  //   type: [String],
-  //   // required: [true, "Product images public id is required"],
-  // },
 });
 
 // Main Product Schema

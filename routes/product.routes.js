@@ -10,6 +10,10 @@ import {
   getAllProductsWithFilteringAndPagination,
   adminDeleteProduct,
   adminUpdateProduct,
+  getProductsByCategory,
+  getPriceRange,
+  searchProducts,
+  pagination,
 } from "../controllers/product.controllers.js";
 import { uploadFileUsingMulter } from "../middlwares/multerMiddleware.js";
 import { verifySeller } from "../middlwares/verifySeller.js";
@@ -30,5 +34,11 @@ router.delete("/deleteImg/:publicId", verifySeller, deleteProductImage);
 router.get("/all", getAllProducts);
 router.get("/all-filter-pagination", getAllProductsWithFilteringAndPagination);
 router.get("/single/:productId", getSingleProduct);
+
+router.get("/category", getProductsByCategory);
+router.get("/price-range", getPriceRange);
+router.get("/search", searchProducts);
+
+router.get("/pagination", pagination);
 
 export default router;

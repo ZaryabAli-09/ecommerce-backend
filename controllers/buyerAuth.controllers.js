@@ -78,7 +78,7 @@ async function verifyEmail(req, res, next) {
     // *** send welcome email ***
     const verificationSuccessTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h1 style="color: #2d3748;">LOGO</h1>
+      <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
       <h2 style="color: #4a5568;">Email Verified Successfully!</h2>
       
       <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -170,7 +170,7 @@ async function register(req, res, next) {
 
     const otpVerificationTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h1 style="color: #2d3748;">LOGO</h1>
+      <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
       <h2 style="color: #4a5568;">OTP Verification</h2>
       
       <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -309,7 +309,7 @@ async function login(req, res, next) {
 
       const otpVerificationTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <h1 style="color: #2d3748;">LOGO</h1>
+        <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
         <h2 style="color: #4a5568;">OTP Verification</h2>
         
         <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -399,7 +399,7 @@ async function forgotPassword(req, res, next) {
     // *** send email with link to reset password ***
     const resetPasswordTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h1 style="color: #2d3748; text-align: center;">LOGO</h1>
+      <h1 style="color: #2d3748; text-align: center;">${process.env.PLATFORM_NAME}</h1>
       <h3 style="color: #4a5568; text-align: center;">Password Reset Request</h3>
       
       <p style="color: #4a5568; text-align: center;">
@@ -515,7 +515,7 @@ async function resetPassword(req, res, next) {
 
     const passwordResetSuccessTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h1 style="color: #2d3748; text-align: center;">LOGO</h1>
+      <h1 style="color: #2d3748; text-align: center;">${process.env.PLATFORM_NAME}</h1>
       <h2 style="color: #4a5568; text-align: center;">Password Reset Successful</h2>
       
       <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center;">

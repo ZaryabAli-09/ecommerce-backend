@@ -31,7 +31,7 @@ export const createDispute = async (req, res, next) => {
     // Prepare Email
     const emailTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-          <h1 style="color: #2d3748;">LOGO</h1>
+          <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
           <h2 style="color: #4a5568;">Support Request Received</h2>
         <p style="color: #4a5568;">Hello ,</p>
           <p style="color: #4a5568;">Thank you for reaching out to us. We have received your support request regarding:</p>
@@ -44,7 +44,7 @@ export const createDispute = async (req, res, next) => {
         </div>
           <p style="color: #4a5568;">We are currently reviewing your request and will get back to you shortly.</p>
           <br />
-        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Support Team </p>
+        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>${process.env.PLATFORM_NAME} Support Team </p>
         </div>
       `;
 
@@ -59,7 +59,7 @@ export const createDispute = async (req, res, next) => {
 
     const emailTemplateForAdmin = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-          <h1 style="color: #2d3748;">LOGO</h1>
+          <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
           <p style="color: #4a5568;">A new support/dispute request has been submitted. Here are the details:</p>
           <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;"
              <p style="margin: 5px 0;"><strong>Subject:</strong> ${fromType}</p>
@@ -139,7 +139,7 @@ export const updateDisputeStatus = async (req, res, next) => {
 
     const emailTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-       <h1 style="color: #2d3748;">LOGO</h1>
+       <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
        <h2 style="color: #4a5568;">Dispute Status Updated</h2>
        <p style="color: #4a5568;">Hello ,</p>
        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -151,7 +151,7 @@ export const updateDisputeStatus = async (req, res, next) => {
     </div>
       <p style="color: #4a5568;">Thank you for you patience.</p>
       <br />
-    <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Support Team </p>
+    <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>${process.env.PLATFORM_NAME} Support Team </p>
     </div>
   `;
 
@@ -164,7 +164,7 @@ export const updateDisputeStatus = async (req, res, next) => {
 
     const adminNotificationTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-     <h1 style="color: #2d3748;">LOGO</h1>
+     <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
      <h2 style="color: #4a5568;">Dispute Status Updated</h2>
      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
     <p style="margin: 5px 0;">A dispute has been updated by support team: <strong>${status}</strong>.</p>

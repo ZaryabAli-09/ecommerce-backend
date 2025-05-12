@@ -143,7 +143,7 @@ async function newOrder(req, res, next) {
 
     const emailTemplate = `
     <div style="font-family: Arial, sans-serif;   max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h1 style="color: #2d3748;">LOGO</h1>
+      <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
       <h2 style="color: #4a5568;">Order Information</h2>
       <p style="color: #4a5568;">You have received a new order.</p>
       <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -180,7 +180,7 @@ async function newOrder(req, res, next) {
 
     const CustomerEmailTemplate = `
   <div style="font-family: Arial, sans-serif;   max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-    <h1 style="color: #2d3748;">LOGO</h1>
+    <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
     <h2 style="color: #4a5568;">Order Information</h2>
     <p style="color: #4a5568;">Your order has been placed successfully.</p>
     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -348,7 +348,7 @@ const updateOrderStatus = async (req, res, next) => {
 
       const OrderStatusTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <h1 style="color: #2d3748;">LOGO</h1>
+        <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
         <h2 style="color: #4a5568;">Order Status Updated</h2>
         
         <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">

@@ -126,7 +126,7 @@ async function register(req, res, next) {
     );
     const emailTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h1 style="color: #2d3748;">LOGO</h1>
+      <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
       <h2 style="color: #4a5568;">Otp Verification!</h2>
       <p style="color: #4a5568;">Please use the following OTP to verify your email address.</p>
       <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -263,12 +263,12 @@ async function forgotPassword(req, res, next) {
 
     const emailTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h1 style="color: #2d3748;">LOGO</h1>
+      <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
       <h2 style="color: #4a5568;">Reset Your Password</h2>
       <p style="color: #4a5568;">Click the link below to reset your password:</p>
       <a href="${process.env.SELLER_FRONTEND_DOMAIN_URL}/reset-password?resetPasswordToken=${resetPasswordToken}" style="display: inline-block; background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 15px;">Reset Password</a>
       <p style="color: #4a5568; margin-top: 20px;">If you did not request this, please ignore this email.</p>
-      <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Admin Team</p>
+      <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>${process.env.PLATFORM_NAME} Admin Team</p>
     </div>
   `;
 
@@ -412,7 +412,7 @@ async function resendOtp(req, res, next) {
 
     const emailTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h1 style="color: #2d3748;">LOGO</h1>
+      <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
       <h2 style="color: #4a5568;">Otp Verification!</h2>
       <p style="color: #4a5568;">Please use the following OTP to verify your email address.</p>
       <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -487,7 +487,7 @@ async function approveSeller(req, res, next) {
     // Send email with credentials
     const emailTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <h1 style="color: #2d3748;">LOGO</h1>
+        <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
         <h2 style="color: #4a5568;">Your Seller Account Has Been Approved!</h2>
         <p style="color: #4a5568;">Hello ${seller.brandName},</p>
         <p style="color: #4a5568;">We're excited to inform you that your seller account has been approved. You can now log in to your seller dashboard and start managing your products.</p>
@@ -500,7 +500,7 @@ async function approveSeller(req, res, next) {
         <p style="color: #4a5568;">For security reasons, we recommend changing your password after logging in.</p>
         <a href="${process.env.SELLER_FRONTEND_LOGIN_DOMAIN_URL}" style="display: inline-block; background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 15px;">Go to Seller Dashboard</a>
         
-        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Admin Team </p>
+        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>${process.env.PLATFORM_NAME} Admin Team </p>
       </div>
     `;
 
@@ -552,7 +552,7 @@ async function rejectSeller(req, res, next) {
     // Send rejection email
     const rejectionTemplate = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <h1 style="color: #2d3748;">LOGO</h1>
+        <h1 style="color: #2d3748;">${process.env.PLATFORM_NAME}</h1>
         <h2 style="color: #4a5568;">Your Seller Account Application</h2>
         <p style="color: #4a5568;">Hello ${brandName},</p>
         <p style="color: #4a5568;">We regret to inform you that your seller account application has been rejected and your account has been removed from our system.</p>
@@ -567,7 +567,7 @@ async function rejectSeller(req, res, next) {
           registering again as a seller.
         </p>
         
-        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>LOGO Admin Team</p>
+        <p style="color: #4a5568; margin-top: 20px;">Best regards,<br>${process.env.PLATFORM_NAME} Admin Team</p>
       </div>
     `;
 

@@ -1,4 +1,5 @@
 import { Product } from "../models/product.model.js";
+import { Category } from "../models/category.model.js";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import { ApiError } from "../utils/apiError.js";
@@ -555,6 +556,197 @@ async function getSingleProduct(req, res, next) {
     next(error);
   }
 }
+const getProductsByCategory = async (req, res, next) => {
+  try {
+    const { category, subcategory, subsubcategory, sort, page, limit } =
+      req.query;
+
+    // Updated function with parentId
+    const getCategoryIdByName = async (name, parentId = null) => {
+      if (!name || name.trim() === "") return null;
+
+      const query = { name: name.trim() };
+      if (parentId) query.parent = parentId;
+
+      const category = await Category.findOne(query);
+      return category ? category._id : null;
+    };
+
+    const catId = await getCategoryIdByName(category); // Main category (no parent)
+    const subCatId = await getCategoryIdByName(subcategory, catId); // subcategory of catId
+    const subSubCatId = await getCategoryIdByName(subsubcategory, subCatId); // sub-subcategory of subCatId
+
+    const categoryFilter = {};
+    if (subSubCatId) {
+      categoryFilter["categories"] = new mongoose.Types.ObjectId(subSubCatId);
+    } else if (subCatId) {
+      categoryFilter["categories"] = new mongoose.Types.ObjectId(subCatId);
+    } else if (catId) {
+      categoryFilter["categories"] = new mongoose.Types.ObjectId(catId);
+    }
+    // Sorting Logic
+    let sortOption = { createdAt: -1 };
+    if (sort === "price-low") {
+      sortOption = { "variants.price": 1 };
+    } else if (sort === "price-high") {
+      sortOption = { "variants.price": -1 };
+    } else if (sort === "popular") {
+      sortOption = { sold: -1 }; // Use a real field like 'views' or 'sold'
+    } else {
+      sortOption = { createdAt: -1 };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    console.log(categoryFilter);
+    const totalProducts = await Product.countDocuments(categoryFilter);
+    const products = await Product.find(categoryFilter)
+      .populate("categories", "name")
+      .select("seller name description sold categories variants") // Populating only name
+      .sort(sortOption)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    res.status(200).json(
+      new ApiResponse(
+        {
+          products,
+          totalProducts,
+          totalPages: Math.ceil(totalProducts / limit),
+          currentPage: parseInt(page),
+        },
+        "Products retrieved successfully."
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const searchProducts = async (req, res, next) => {
+  try {
+    const {
+      query,
+      sortBy = "recent",
+      minPrice,
+      maxPrice,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    // Build search query
+    const matchedCategories = await Category.find({
+      name: { $regex: query, $options: "i" },
+    }).select("_id");
+
+    const matchedCategoryIds = matchedCategories.map((cat) => cat._id);
+    const searchQuery = {
+      $or: [
+        { name: { $regex: query, $options: "i" } },
+        { categories: { $in: matchedCategoryIds } },
+      ],
+    };
+
+    // Add price filter if provided
+    if (minPrice || maxPrice) {
+      searchQuery["variants.price"] = {};
+      if (minPrice) searchQuery["variants.price"].$gte = Number(minPrice);
+      if (maxPrice) searchQuery["variants.price"].$lte = Number(maxPrice);
+    }
+
+    // Build sort options
+    let sortOption = {};
+    switch (sortBy) {
+      case "recent":
+        sortOption = { createdAt: -1 };
+        break;
+      case "popular":
+        sortOption = { sold: -1 };
+        break;
+      case "price-low":
+        sortOption = { "variants.price": 1 }; // Ascending
+        break;
+      case "price-high":
+        sortOption = { "variants.price": -1 }; // Descending
+        break;
+
+      default:
+        sortOption = { createdAt: -1 };
+    }
+
+    // Calculate skip for pagination
+    const skip = (page - 1) * limit;
+    // Get products with pagination
+    const products = await Product.find(searchQuery)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(Number(limit));
+
+    // Count total products
+    const totalProducts = await Product.countDocuments(searchQuery);
+
+    res.status(200).json(
+      new ApiResponse(
+        {
+          products,
+          totalProducts,
+          totalPages: Math.ceil(totalProducts / limit),
+          currentPage: Number(page),
+        },
+        "Products retrieved successfully."
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPriceRange = async (req, res, next) => {
+  try {
+    const priceRange = await Product.aggregate([
+      {
+        $unwind: "$variants",
+      },
+      {
+        $group: {
+          _id: null,
+          minPrice: { $min: "$variants.price" },
+          maxPrice: { $max: "$variants.price" },
+        },
+      },
+    ]);
+
+    res.json({
+      status: "success",
+      data: priceRange[0] || { minPrice: 0, maxPrice: 0 },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+async function pagination(req, res, next) {
+  try {
+    const { limit, page } = req.query;
+
+    const skip = Number(page - 1) * Number(limit);
+
+    const products = await Product.find()
+      .select("name")
+      .skip(skip)
+      .limit(Number(limit));
+
+    const totalProducts = await Product.countDocuments();
+
+    res.json({
+      products,
+      totalProducts,
+      totalPages: Math.ceil(totalProducts / limit),
+      currentPage: Number(page),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 
 export {
   createProduct,
@@ -567,4 +759,8 @@ export {
   getAllProductsWithFilteringAndPagination,
   adminDeleteProduct,
   adminUpdateProduct,
+  getProductsByCategory,
+  searchProducts,
+  getPriceRange,
+  pagination,
 };
