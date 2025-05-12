@@ -624,129 +624,34 @@ const getProductsByCategory = async (req, res, next) => {
 
 const searchProducts = async (req, res, next) => {
   try {
-    const {
-      query,
-      sortBy = "recent",
-      minPrice,
-      maxPrice,
-      page = 1,
-      limit = 10,
-    } = req.query;
+    const { query, page = 1, limit = 10 } = req.query;
 
-    // Build search query
-    const matchedCategories = await Category.find({
-      name: { $regex: query, $options: "i" },
-    }).select("_id");
+    if (!query || query.trim() === "") {
+      return res.status(400).json({ message: "Query parameter is required" });
+    }
 
-    const matchedCategoryIds = matchedCategories.map((cat) => cat._id);
     const searchQuery = {
       $or: [
         { name: { $regex: query, $options: "i" } },
-        { categories: { $in: matchedCategoryIds } },
+        { "variants.color": { $regex: query, $options: "i" } },
       ],
     };
 
-    // Add price filter if provided
-    if (minPrice || maxPrice) {
-      searchQuery["variants.price"] = {};
-      if (minPrice) searchQuery["variants.price"].$gte = Number(minPrice);
-      if (maxPrice) searchQuery["variants.price"].$lte = Number(maxPrice);
-    }
-
-    // Build sort options
-    let sortOption = {};
-    switch (sortBy) {
-      case "recent":
-        sortOption = { createdAt: -1 };
-        break;
-      case "popular":
-        sortOption = { sold: -1 };
-        break;
-      case "price-low":
-        sortOption = { "variants.price": 1 }; // Ascending
-        break;
-      case "price-high":
-        sortOption = { "variants.price": -1 }; // Descending
-        break;
-
-      default:
-        sortOption = { createdAt: -1 };
-    }
-
-    // Calculate skip for pagination
     const skip = (page - 1) * limit;
-    // Get products with pagination
+
     const products = await Product.find(searchQuery)
-      .sort(sortOption)
+      .sort({ createdAt: -1 }) // Basic relevance sort
       .skip(skip)
       .limit(Number(limit));
 
-    // Count total products
-    const totalProducts = await Product.countDocuments(searchQuery);
-
-    res.status(200).json(
-      new ApiResponse(
-        {
-          products,
-          totalProducts,
-          totalPages: Math.ceil(totalProducts / limit),
-          currentPage: Number(page),
-        },
-        "Products retrieved successfully."
-      )
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getPriceRange = async (req, res, next) => {
-  try {
-    const priceRange = await Product.aggregate([
-      {
-        $unwind: "$variants",
-      },
-      {
-        $group: {
-          _id: null,
-          minPrice: { $min: "$variants.price" },
-          maxPrice: { $max: "$variants.price" },
-        },
-      },
-    ]);
-
-    res.json({
+    res.status(200).json({
       status: "success",
-      data: priceRange[0] || { minPrice: 0, maxPrice: 0 },
+      data: products,
     });
   } catch (error) {
     next(error);
   }
 };
-
-async function pagination(req, res, next) {
-  try {
-    const { limit, page } = req.query;
-
-    const skip = Number(page - 1) * Number(limit);
-
-    const products = await Product.find()
-      .select("name")
-      .skip(skip)
-      .limit(Number(limit));
-
-    const totalProducts = await Product.countDocuments();
-
-    res.json({
-      products,
-      totalProducts,
-      totalPages: Math.ceil(totalProducts / limit),
-      currentPage: Number(page),
-    });
-  } catch (error) {
-    next(error);
-  }
-}
 
 export {
   createProduct,
@@ -761,6 +666,4 @@ export {
   adminUpdateProduct,
   getProductsByCategory,
   searchProducts,
-  getPriceRange,
-  pagination,
 };
