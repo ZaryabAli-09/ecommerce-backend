@@ -2,12 +2,14 @@ import mongoose from "mongoose";
 import { Product } from "../models/product.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import getBuyerCartItemsCount from "../utils/getBuyerCartItemsCount.js";
 
 async function addToCartItems(req, res, next) {
   try {
     const { productId, variantId } = req.params;
 
     if (!productId || !variantId) {
+      console.log("Product Id and Variant Id are required.");
       throw new ApiError(400, "Product Id and Variant Id are required.");
     }
 
@@ -45,11 +47,20 @@ async function addToCartItems(req, res, next) {
     if (itemExists) {
       if (itemExists.quantity >= 3) {
         throw new ApiError(400, "Cannot exceed quantity from 3.");
-      }
-      if (itemExists.quantity >= variant.stock) {
+      } else if (itemExists.quantity >= variant.stock) {
         throw new ApiError(400, "Cannot add more than available stock.");
+      } else {
+        itemExists.quantity += 1;
+        await buyer.save();
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(
+              { cartItemsCount: getBuyerCartItemsCount(buyer.cart) },
+              `Product Quantity increased to ${itemExists.quantity}.`
+            )
+          );
       }
-      itemExists.quantity += 1;
 
       // else directly add to cart
     } else {
@@ -63,7 +74,14 @@ async function addToCartItems(req, res, next) {
     // saving....
     await buyer.save();
 
-    res.status(200).json(new ApiResponse(null, "Item added to cart."));
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          { cartItemsCount: getBuyerCartItemsCount(buyer.cart) },
+          "Item added to cart."
+        )
+      );
   } catch (error) {
     next(error);
   }
@@ -93,7 +111,7 @@ async function getCartItems(req, res, next) {
       populate: [
         {
           path: "seller",
-          select: "name",
+          select: "brandName",
         },
         {
           path: "variants",
@@ -138,16 +156,14 @@ async function getCartItems(req, res, next) {
     next(error);
   }
 }
-async function updateCart(req, res, next) {
+
+// (to zaryab) I am using addToCartItems controller above to increment the qunatity of an item in cart and this one is specifically to decrement the quantity of an item in cart, I modified it, its name, its code
+async function decrementCartItemQuantity(req, res, next) {
   try {
-    const { cartId, quantity } = req.body;
+    const { cartId } = req.body;
 
-    if (!cartId || !quantity) {
+    if (!cartId) {
       throw new ApiError(400, "Cart item details are required for updating.");
-    }
-
-    if (quantity < 1 || quantity > 3) {
-      throw new ApiError(400, "Quantity must be between 1 and 3.");
     }
 
     let buyer = req.buyer;
@@ -164,23 +180,11 @@ async function updateCart(req, res, next) {
       throw new ApiError(404, "Cart item not found.");
     }
 
-    // Get product and variant to check stock
-    const cartItem = buyer.cart[cartItemIndex];
-    const product = await Product.findById(cartItem.product);
-    const variant = product.variants.id(cartItem.variant);
-
-    if (!variant) {
-      throw new ApiError(404, "Variant not found.");
+    if (buyer.cart[cartItemIndex].quantity === 1) {
+      throw new ApiError(404, "Product quantity cannot be less than 1.");
     }
 
-    if (quantity > variant.stock) {
-      throw new ApiError(
-        400,
-        "Cannot update quantity to more than available stock."
-      );
-    }
-
-    buyer.cart[cartItemIndex].quantity = quantity;
+    buyer.cart[cartItemIndex].quantity -= 1;
 
     await buyer.save();
 
@@ -193,31 +197,19 @@ async function updateCart(req, res, next) {
       },
     });
 
-    const totalQuantity = buyer.cart.reduce(
-      (sum, item) => sum + item.quantity,
-      0
-    );
-
-    const totalAmount = buyer.cart.reduce((sum, item) => {
-      const variant = item.product.variants.find(
-        (v) => v._id.toString() === item.variant.toString()
-      );
-      const price = variant.discountedPrice || variant.price;
-      return sum + item.quantity * price;
-    }, 0);
-
     res
       .status(200)
       .json(
         new ApiResponse(
-          { cart: buyer.cart, totalQuantity, totalAmount },
-          "Cart successfully updated."
+          { cartItemsCount: getBuyerCartItemsCount(buyer.cart) },
+          `Product quantity decreased to ${buyer.cart[cartItemIndex].quantity}`
         )
       );
   } catch (error) {
     next(error);
   }
 }
+
 async function removeFromCart(req, res, next) {
   try {
     const { cartId } = req.params;
@@ -238,7 +230,12 @@ async function removeFromCart(req, res, next) {
 
     res
       .status(200)
-      .json(new ApiResponse(buyer.cart, "Item removed from cart."));
+      .json(
+        new ApiResponse(
+          { cartItemsCount: getBuyerCartItemsCount(buyer.cart) },
+          "Item removed from cart."
+        )
+      );
   } catch (error) {
     next(error);
   }
@@ -246,23 +243,35 @@ async function removeFromCart(req, res, next) {
 
 async function addIItemToWishlist(req, res, next) {
   try {
-    const { productId } = req.params;
+    const { productId, variantId } = req.params;
 
-    if (!productId) {
-      throw new ApiError(400, "Product Id not found.");
+    if (!productId || !variantId) {
+      console.log("Product Id and Variant Id are required.");
+      throw new ApiError(400, "Product Id and Variant Id are required.");
     }
 
-    const buyer = req.buyer;
-
+    let buyer = req.buyer;
     if (!buyer) {
       throw new ApiError(400, "Buyer not found.");
     }
 
-    if (buyer.wishlist.includes(productId)) {
+    // check if already in wishlist
+    const itemExists = buyer.wishlist.find((item) => {
+      return (
+        item.product.toString() === productId &&
+        item.variant.toString() === variantId
+      );
+    });
+
+    if (itemExists) {
       throw new ApiError(400, "Item already in wishlist.");
     }
 
-    buyer.wishlist.push(productId);
+    buyer.wishlist.push({
+      product: productId,
+      variant: variantId,
+    });
+
     await buyer.save();
 
     res
@@ -281,13 +290,40 @@ async function getWishList(req, res, next) {
       throw new ApiError(400, "Buyer not found.");
     }
 
-    buyer = await buyer.populate("wishlist");
+    // Populate only selected fields from Product
+    await buyer.populate({
+      path: "wishlist.product",
+      select: "name rating numReviews reviews variants",
+    });
+
+    const wishlist = buyer.wishlist
+      .map((item) => {
+        const product = item.product;
+
+        if (!product) return null; // In case product reference is broken
+
+        // Find the specific variant by ID
+        const selectedVariant = product.variants.find(
+          (v) => v._id.toString() === item.variant.toString()
+        );
+
+        return {
+          _id: item._id,
+          product: {
+            _id: product._id,
+            name: product.name,
+            rating: product.rating,
+            numReviews: product.numReviews,
+            reviews: product.reviews,
+          },
+          variant: selectedVariant,
+        };
+      })
+      .filter(Boolean); // Filter out any nulls from broken refs
 
     res
       .status(200)
-      .json(
-        new ApiResponse(buyer.wishlist, "Wishlist retrieved successfully.")
-      );
+      .json(new ApiResponse(wishlist, "Wishlist retrieved successfully."));
   } catch (error) {
     next(error);
   }
@@ -295,10 +331,10 @@ async function getWishList(req, res, next) {
 
 async function removeFromWhislist(req, res, next) {
   try {
-    const { productId } = req.params;
+    const { productId, variantId } = req.params;
 
-    if (!productId) {
-      throw new ApiError(400, "Product Id not found.");
+    if (!productId || !variantId) {
+      throw new ApiError(400, "productId and variantId not found.");
     }
 
     const buyer = req.buyer;
@@ -307,7 +343,13 @@ async function removeFromWhislist(req, res, next) {
       throw new ApiError(400, "Buyer not found.");
     }
 
-    buyer.wishlist = buyer.wishlist.filter((id) => id.toString() !== productId);
+    buyer.wishlist = buyer.wishlist.filter(
+      (wishlistItem) =>
+        !(
+          wishlistItem.product.toString() === productId &&
+          wishlistItem.variant.toString() === variantId
+        )
+    );
 
     await buyer.save();
 
@@ -322,7 +364,7 @@ async function removeFromWhislist(req, res, next) {
 export {
   addToCartItems,
   removeFromCart,
-  updateCart,
+  decrementCartItemQuantity,
   addIItemToWishlist,
   removeFromWhislist,
   getWishList,

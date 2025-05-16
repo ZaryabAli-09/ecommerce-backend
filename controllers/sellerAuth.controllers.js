@@ -169,7 +169,7 @@ async function login(req, res, next) {
     const existingSeller = await Seller.findOne({ email });
 
     if (!existingSeller) {
-      throw new ApiError(400, "Invalid email address.");
+      throw new ApiError(400, "Email doesn't exists.");
     }
 
     const isPasswordCorrect = await bcryptjs.compare(

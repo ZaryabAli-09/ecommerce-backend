@@ -30,7 +30,7 @@ export const getConversations = async (req, res, next) => {
       if (otherUserModel === "Buyer") {
         otherUser = await Buyer.findById(otherUserId).select("name");
       } else if (otherUserModel === "Seller") {
-        otherUser = await Seller.findById(otherUserId).select("brandName");
+        otherUser = await Seller.findById(otherUserId).select("brandName logo"); //add logo field changes ...............................
       }
 
       if (otherUser && !conversationMap.has(otherUserId.toString())) {
@@ -39,6 +39,7 @@ export const getConversations = async (req, res, next) => {
           name: otherUser.brandName || otherUser.name, // Ensure correct field is used
           lastMessage: msg.message,
           timestamp: msg.timestamp,
+          logo: otherUser.logo || null, // changes..................................
         });
       }
     }

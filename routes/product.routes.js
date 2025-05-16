@@ -10,10 +10,13 @@ import {
   getAllProductsWithFilteringAndPagination,
   adminDeleteProduct,
   adminUpdateProduct,
+  getStoreProducts,
   getProductsByCategory,
   searchProducts,
+  getSingleProductForSeller,
 } from "../controllers/product.controllers.js";
 import { uploadFileUsingMulter } from "../middlwares/multerMiddleware.js";
+import getBuyer from "../middlwares/getBuyer.js";
 import { verifySeller } from "../middlwares/verifySeller.js";
 import { verifyAdmin } from "../middlwares/verifyAdmin.js";
 const router = express.Router();
@@ -31,9 +34,14 @@ router.delete("/deleteImg/:publicId", verifySeller, deleteProductImage);
 // buyer routes
 router.get("/all", getAllProducts);
 router.get("/all-filter-pagination", getAllProductsWithFilteringAndPagination);
-router.get("/single/:productId", getSingleProduct);
+router.get("/single/:productId", getBuyer, getSingleProduct);
+
+// i need to change my seller frontend code related to this route
+router.get("/single/seller/:productId", getSingleProductForSeller);
 
 router.get("/category", getProductsByCategory);
 router.get("/search", searchProducts);
+
+router.get("/store-products/:storeId", getStoreProducts);
 
 export default router;

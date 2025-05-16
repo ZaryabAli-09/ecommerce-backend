@@ -4,7 +4,7 @@ import {
   removeFromCart,
   addIItemToWishlist,
   removeFromWhislist,
-  updateCart,
+  decrementCartItemQuantity,
   getWishList,
   getCartItems,
 } from "../controllers/cart-wishlist.controllers.js";
@@ -15,12 +15,20 @@ const router = express.Router();
 // cart routes
 router.post("/cart/add/:productId/:variantId", verifyUser, addToCartItems);
 router.post("/cart/remove/:cartId", verifyUser, removeFromCart);
-router.put("/cart/update", verifyUser, updateCart);
+router.put("/cart/decrement", verifyUser, decrementCartItemQuantity);
 router.get("/cart", verifyUser, getCartItems);
 
 // wishlist routes
-router.post("/wishlist/add/:productId", verifyUser, addIItemToWishlist);
-router.post("/wishlist/remove/:productId", verifyUser, removeFromWhislist);
+router.post(
+  "/wishlist/add/:productId/:variantId",
+  verifyUser,
+  addIItemToWishlist
+);
+router.post(
+  "/wishlist/remove/:productId/:variantId",
+  verifyUser,
+  removeFromWhislist
+);
 router.get("/wishlist", verifyUser, getWishList);
 
 export default router;

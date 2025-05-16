@@ -389,10 +389,12 @@ async function adminUpdateProduct(req, res, next) {
 }
 async function getAllProducts(req, res, next) {
   try {
-    const products = await Product.find()
-      .populate("reviews")
-      .populate("seller")
-      .sort({ createdAt: -1 }); // Sort by newest first (-1 for descending)
+    const products = await Product.find(
+      {},
+      { name: 1, numReviews: 1, rating: 1, sold: 1, variants: 1 }
+    );
+    // .populate("reviews")
+    // .populate("seller");
 
     res
       .status(200)
@@ -540,6 +542,58 @@ function generateDummyProducts(count) {
 async function getSingleProduct(req, res, next) {
   try {
     const { productId } = req.params;
+
+    const productDoc = await Product.findById(productId)
+      .populate({
+        path: "seller",
+        select: "logo brandName",
+      })
+      .populate({
+        path: "reviews",
+        populate: {
+          path: "user", // Populate the 'user' field in 'reviews'
+          select: "name", // Select only the 'name' field from 'user'
+        },
+      })
+      .populate("categories", "name"); // Populate 'categories' and select only 'name'
+
+    const product = productDoc.toObject();
+
+    if (!req.buyer) {
+      // if user is not logged in we set the isInWishlist field on each variant to false
+      product.variants.forEach((variant) => {
+        variant.isInWishlist = false;
+      });
+    } else {
+      // otherwise we check if each variant is in wishlist or not
+
+      product.variants.forEach((variant) => {
+        req.buyer.wishlist.forEach((wishlistItem) => {
+          if (
+            String(wishlistItem.variant) === String(variant._id) &&
+            String(wishlistItem.product) === String(productId)
+          ) {
+            variant.isInWishlist = true;
+          }
+        });
+
+        if (!variant.isInWishlist) {
+          variant.isInWishlist = false;
+        }
+      });
+    }
+
+    res
+      .status(200)
+      .json(new ApiResponse(product, "Product retrieved successfully."));
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getSingleProductForSeller(req, res, next) {
+  try {
+    const { productId } = req.params;
     const product = await Product.findById(productId)
       .populate({
         path: "reviews",
@@ -556,6 +610,7 @@ async function getSingleProduct(req, res, next) {
     next(error);
   }
 }
+
 const getProductsByCategory = async (req, res, next) => {
   try {
     const { category, subcategory, subsubcategory, sort, page, limit } =
@@ -652,6 +707,34 @@ const searchProducts = async (req, res, next) => {
     next(error);
   }
 };
+async function getStoreProducts(req, res, next) {
+  try {
+    const storeId = req.params.storeId;
+
+    if (!storeId) {
+      throw new ApiError(400, "StoreId not found.");
+    }
+
+    const storeAllProducts = await Product.find(
+      {
+        seller: new mongoose.Types.ObjectId(storeId),
+      },
+      { name: 1, numReviews: 1, rating: 1, sold: 1, variants: 1 }
+    );
+    console.log(storeAllProducts);
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          storeAllProducts,
+          "Store products retrieved successfully."
+        )
+      );
+  } catch (error) {
+    next(error);
+  }
+}
 
 export {
   createProduct,
@@ -666,4 +749,6 @@ export {
   adminUpdateProduct,
   getProductsByCategory,
   searchProducts,
+  getSingleProductForSeller,
+  getStoreProducts,
 };

@@ -2,6 +2,11 @@ import { Buyer } from "../models/buyer.models.js";
 import bcryptjs from "bcryptjs";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import getBuyerCartItemsCount from "../utils/getBuyerCartItemsCount.js";
+
+import mongoose from "mongoose";
+
+import { Product } from "../models/product.model.js";
 
 async function getAllBuyers(req, res, next) {
   try {
@@ -106,4 +111,169 @@ async function deleteBuyer(req, res, next) {
   }
 }
 
-export { getAllBuyers, getSingleBuyer, updateBuyer, deleteBuyer };
+function getBuyerProfile(req, res) {
+  const buyer = req.buyer;
+
+  res.status(200).json({
+    status: "success",
+    message: "Profile fetched successfully",
+    data: {
+      id: buyer._id,
+      name: buyer.name,
+      email: buyer.email,
+      phoneNumber: buyer.phoneNumber,
+      country: buyer.address.country,
+      province: buyer.address.province,
+      city: buyer.address.city,
+      remainingAddress: buyer.address.remainingAddress,
+      notes: buyer.address.notes,
+      cartItemsCount: getBuyerCartItemsCount(buyer.cart),
+      wishlistItemsCount: buyer.wishlist.length,
+    },
+  });
+}
+
+async function updateBuyerProfile(req, res) {
+  try {
+    const buyer = req.buyer;
+
+    const { name, phoneNumber, province, city, remainingAddress, notes } =
+      req.body;
+
+    buyer.name = name;
+    buyer.phoneNumber = phoneNumber;
+    buyer.address.province = province;
+    buyer.address.city = city;
+    buyer.address.remainingAddress = remainingAddress;
+    buyer.address.notes = notes;
+
+    await buyer.save();
+
+    return res.status(200).json(
+      new ApiResponse(
+        {
+          name: buyer.name,
+          email: buyer.email,
+          phoneNumber: buyer.phoneNumber,
+          country: buyer.address.country,
+          province: buyer.address.province,
+          city: buyer.address.city,
+          remainingAddress: buyer.address.remainingAddress,
+          notes: buyer.address.notes,
+          cartItemsCount: getBuyerCartItemsCount(buyer.cart),
+          wishlistItemsCount: buyer.wishlist.length,
+        },
+
+        "Profile updated successfully."
+      )
+    );
+  } catch (error) {}
+}
+
+// Added by Talha below for buyer side application
+
+async function addToBuyerBrowsingHistory(req, res) {
+  const buyer = req.buyer;
+
+  if (!buyer) {
+    throw new ApiError(404, "Buyer not found.");
+  }
+
+  const productId = req.body.productId;
+
+  if (!productId) {
+    throw new ApiError(404, "Product Id not found.");
+  }
+
+  const product = await Product.findOne({ _id: productId });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found.");
+  }
+
+  const browsingHistory = buyer.browsingHistory;
+
+  if (browsingHistory.includes(productId)) {
+    browsingHistory.splice(browsingHistory.indexOf(productId), 1);
+  }
+
+  browsingHistory.push(new mongoose.Types.ObjectId(productId));
+
+  await buyer.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "Product added to browsing history successfully.",
+    data: null,
+  });
+}
+
+async function deleteFromBuyerBrowsingHistory(req, res) {
+  const buyer = req.buyer;
+
+  if (!buyer) {
+    throw new ApiError(404, "Buyer not found.");
+  }
+
+  const productId = req.body.productId;
+
+  if (!productId) {
+    throw new ApiError(404, "Product Id not found.");
+  }
+
+  const product = await Product.findOne({ _id: productId });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found.");
+  }
+
+  const browsingHistory = buyer.browsingHistory;
+
+  if (browsingHistory.includes(productId)) {
+    browsingHistory.splice(browsingHistory.indexOf(productId), 1);
+  }
+
+  await buyer.save();
+
+  const populatedBuyer = await buyer.populate({
+    path: "browsingHistory",
+    select: "name numReviews rating variants", // only these fields will be included
+  });
+
+  res.status(200).json({
+    status: "success",
+    message: "Product removed from browsing history successfully.",
+    data: populatedBuyer.browsingHistory,
+  });
+}
+
+async function getBuyerBrowsingHistory(req, res) {
+  const buyer = req.buyer;
+
+  if (!buyer) {
+    throw new ApiError(404, "Buyer not found.");
+  }
+
+  const populatedBuyer = await buyer.populate({
+    path: "browsingHistory",
+    select: "name numReviews rating variants", // only these fields will be included
+  });
+
+  res.status(200).json({
+    status: "success",
+    message: "Product added to browsing history successfully.",
+    data: populatedBuyer.browsingHistory,
+  });
+}
+
+export {
+  getAllBuyers,
+  getSingleBuyer,
+  updateBuyer,
+  deleteBuyer,
+  getBuyerProfile,
+  updateBuyerProfile,
+  addToBuyerBrowsingHistory,
+  getBuyerBrowsingHistory,
+  deleteFromBuyerBrowsingHistory,
+};

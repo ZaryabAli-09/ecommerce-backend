@@ -12,7 +12,8 @@ import {
   getSellerBillingInfo,
   getPendingSellers,
   getSellerDetailsForAdminPanel,
-  getAllSellersBasicInfo,
+  getSellerBasicInfo,
+  getSellerAboutUsInfo,
 } from "../controllers/seller.controllers.js";
 import { upload } from "../middlwares/multerMiddleware.js";
 
@@ -26,14 +27,15 @@ const handleImageType = (type) => (req, res, next) => {
 
 // admin routes and general buyer routes
 router.get("/all", getAllSellers);
-router.get("/all/basicInfo", getAllSellersBasicInfo);
-
 router.put("/admin/update/:sellerId", verifyAdmin, updateSeller);
 
 router.get("/details/:sellerId", verifyAdmin, getSellerDetailsForAdminPanel);
 router.get("/pending", verifyAdmin, getPendingSellers);
 router.delete("/delete/:sellerId", verifyAdmin, deleteSeller);
 router.get("/billingInfo", verifyAdmin, getSellerBillingInfo);
+
+router.get("/single/basic-info/:sellerId", getSellerBasicInfo);
+router.get("/single/about-us-info/:sellerId", getSellerAboutUsInfo);
 // brand / seller routes
 router.get(
   "/dashboard-information/:sellerId",

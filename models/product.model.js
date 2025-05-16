@@ -45,7 +45,6 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product name is required"],
       trim: true, // Trims unnecessary whitespace
       unique: true,
-      lowercase: true,
     },
     description: {
       type: String,

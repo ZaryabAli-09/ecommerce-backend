@@ -8,6 +8,7 @@ import crypto from "crypto";
 import sendEmailHtml from "../utils/sendEmailHtml.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import getBuyerCartItemsCount from "../utils/getBuyerCartItemsCount.js";
 
 async function verifyEmail(req, res, next) {
   try {
@@ -62,7 +63,7 @@ async function verifyEmail(req, res, next) {
     }
 
     if (Date.now() > buyer.verificationOtpExpiresAt) {
-      throw new ApiError(401, "Verification OTP is expired");
+      throw new ApiError(401, "Verification OTP is expired.");
     }
 
     // *** verify the user and delete fields related to verification otp ***
@@ -104,7 +105,9 @@ async function verifyEmail(req, res, next) {
 
     return res
       .status(200)
-      .json(new ApiResponse(null, "Email verified successfully!"));
+      .json(
+        new ApiResponse(null, "Email verified successfully. Please login now!")
+      );
   } catch (error) {
     next(error);
   }
@@ -279,14 +282,26 @@ async function login(req, res, next) {
         .cookie("access_token", access_token, {
           httpOnly: true,
           secure: true,
+          maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day
           sameSite: "None",
         })
         .cookie("refresh_token", refresh_token, {
           httpOnly: true,
           secure: true,
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
           sameSite: "None",
         })
-        .json(new ApiResponse(buyer, "Logged in successfully."));
+        .json(
+          new ApiResponse(
+            {
+              id: buyer._id,
+              name: buyer.name,
+              wishlistItemsCount: buyer.wishlist.length,
+              cartItemsCount: getBuyerCartItemsCount(buyer.cart),
+            },
+            "Logged in successfully."
+          )
+        );
     }
 
     // Handle unverified user
@@ -366,7 +381,7 @@ async function forgotPassword(req, res, next) {
     const buyer = await Buyer.findOne({ email });
 
     if (!buyer) {
-      throw new ApiError(400, "This email does'nt exists.");
+      throw new ApiError(400, "This email doesn't exists.");
     }
 
     // *** Generate reset password token and expiration time of reset password token ***
@@ -407,7 +422,7 @@ async function forgotPassword(req, res, next) {
       </p>
       
       <div style="text-align: center; margin: 25px 0;">
-        <a href="${process.env.FRONTEND_DOMAIN_URL}/reset-password?resetPasswordToken=${resetPasswordToken}" 
+      <a href="${process.env.FRONTEND_DOMAIN_URL}/auth/reset-password?resetPasswordToken=${resetPasswordToken}"
            style="display: inline-block; 
                   background-color: #4299e1; 
                   color: white; 
@@ -479,9 +494,8 @@ async function resetPassword(req, res, next) {
 
     // *** get the resetPasswordToken passed in, id from jwt and new password from request body ***
 
-    const { resetPasswordToken } = req.params;
     const id = decodedAuthToken.id;
-    const { newPassword } = req.body;
+    const { newPassword, resetPasswordToken } = req.body;
 
     // *** find the buyer in the database ***
 
@@ -558,7 +572,12 @@ async function resetPassword(req, res, next) {
 
     return res
       .status(200)
-      .json(new ApiResponse(null, "Password reset successfully"));
+      .json(
+        new ApiResponse(
+          null,
+          "Password reset successfully. Please login with your new password."
+        )
+      );
   } catch (error) {
     next(error);
   }
@@ -584,7 +603,7 @@ async function googleAuth(req, res, next) {
     // if user is not registered save the user in db and directly login the user to website
     if (!buyer) {
       // Password hashing
-      const hashedPassword = bcryptjs.hash(
+      const hashedPassword = await bcryptjs.hash(
         Math.random().toString(36).slice(-8),
         12
       );
@@ -630,7 +649,7 @@ async function googleAuth(req, res, next) {
         sameSite: "None",
       })
 
-      .json(new ApiResponse(buyer, "Google Signed in successfully"));
+      .json(new ApiResponse(buyer, "Logged in with google successfully."));
   } catch (error) {
     next(error);
   }

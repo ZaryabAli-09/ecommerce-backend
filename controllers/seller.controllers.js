@@ -53,28 +53,6 @@ async function getAllSellers(req, res, next) {
   }
 }
 
-async function getAllSellersBasicInfo(req, res, next) {
-  try {
-    const sellers = await Seller.find({}).select(
-      "brandName logo coverImage bussinessAddress brandDescription"
-    );
-
-    const totalSellers = await Seller.countDocuments({});
-
-    return res.status(200).json(
-      new ApiResponse(
-        {
-          sellers,
-          totalSellers,
-        },
-        "Sellers retrieved successfully"
-      )
-    );
-  } catch (error) {
-    next(error);
-  }
-}
-
 async function getSellerDetailsForAdminPanel(req, res, next) {
   try {
     const { sellerId } = req.params;
@@ -571,6 +549,65 @@ async function getPendingSellers(req, res, next) {
     next(error);
   }
 }
+async function getSellerBasicInfo(req, res, next) {
+  try {
+    const { sellerId } = req.params;
+
+    if (!sellerId) throw new ApiError(404, "Seller id not found.");
+
+    const seller = await Seller.findOne(
+      { _id: sellerId },
+      { brandName: 1, logo: 1 }
+    );
+
+    if (!seller) {
+      throw new ApiError(404, "No seller found.");
+    }
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(seller, "store basic info retrieved successfully.")
+      );
+  } catch (error) {
+    next(error);
+  }
+}
+
+// The below controller is added by Talha for seller side frontend
+async function getSellerAboutUsInfo(req, res, next) {
+  try {
+    const { sellerId } = req.params;
+
+    if (!sellerId) throw new ApiError(404, "Seller id not found.");
+
+    const seller = await Seller.findOne(
+      { _id: sellerId },
+      {
+        brandName: 1,
+        email: 1,
+        coverImage: 1,
+        contactNumber: 1,
+        brandDescription: 1,
+        businessAddress: 1,
+        socialLinks: 1,
+      }
+    );
+
+    if (!seller) {
+      throw new ApiError(404, "No seller found.");
+    }
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(seller, "Store about us info retrieved successfully.")
+      );
+  } catch (error) {
+    next(error);
+  }
+}
+
 export {
   sellerDashboardInformation,
   getAllSellers,
@@ -581,5 +618,6 @@ export {
   getSellerBillingInfo,
   getPendingSellers,
   getSellerDetailsForAdminPanel,
-  getAllSellersBasicInfo,
+  getSellerBasicInfo,
+  getSellerAboutUsInfo,
 };

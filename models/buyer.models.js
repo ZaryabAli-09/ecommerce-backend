@@ -7,7 +7,6 @@ const buyerSchema = new mongoose.Schema(
       type: String,
       required: [true, "Name is required"],
       trim: true,
-      lowercase: true,
       minlength: [3, "Name must be at least 3 characters long"],
       maxlength: [100, "Name cannot exceed 100 characters"],
     },
@@ -41,6 +40,14 @@ const buyerSchema = new mongoose.Schema(
       enum: ["male", "female"],
       default: null,
     },
+    browsingHistory: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+    ],
+
+    phoneNumber: { type: String, trim: true },
 
     interests: {
       type: [String],
@@ -66,15 +73,11 @@ const buyerSchema = new mongoose.Schema(
 
     // Address object for user's shipping or billing address
     address: {
-      street: { type: String, trim: true },
+      country: { type: String, trim: true, default: "Pakistan" },
+      province: { type: String, trim: true },
       city: { type: String, trim: true },
-      state: { type: String, trim: true },
-      postalCode: {
-        type: String,
-        trim: true,
-        maxlength: [10, "Postal code cannot exceed 10 characters"],
-      },
-      country: { type: String, trim: true },
+      remainingAddress: { type: String, trim: true },
+      notes: { type: String, trim: true },
     },
 
     // Verification for email status
@@ -125,10 +128,18 @@ const buyerSchema = new mongoose.Schema(
       },
     ],
     // Wishlist: Array of product references the user has favorited
+
     wishlist: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+        },
+        variant: {
+          // Add variant reference
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+        },
       },
     ],
   },
