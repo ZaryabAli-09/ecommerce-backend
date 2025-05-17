@@ -6,6 +6,8 @@ import {
   getOrderDetails,
   allOrders,
   myOrders,
+  confirmStripePayment,
+  newOrderStripeCheckout,
 } from "../controllers/order.controllers.js";
 import { verifyUser } from "../middlwares/verifyUser.js";
 import { verifySeller } from "../middlwares/verifySeller.js";
@@ -24,5 +26,8 @@ router.patch("/update-status/:orderId", verifySeller, updateOrderStatus);
 // user / buyer routes
 router.get("/my", verifyUser, myOrders);
 router.post("/new", verifyUser, newOrder);
+router.post("/checkout-session", newOrderStripeCheckout);
+router.get("/confirm-stripe-payment", confirmStripePayment);
+
 router.get("/:orderId", getOrderDetails);
 export default router;

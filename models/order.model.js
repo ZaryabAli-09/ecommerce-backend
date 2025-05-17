@@ -46,7 +46,9 @@ const orderSchema = new mongoose.Schema(
     paymentDetails: {
       transactionId: { type: String, trim: true }, // From the payment gateway
       paymentGateway: { type: String, trim: true }, // e.g., "Stripe", "PayPal"
-      paymentDate: { type: Date }, // When payment was made
+      paymentStatus: {
+        type: String,
+      },
     },
     shippingAddress: {
       street: { type: String, trim: true, required: true },
@@ -55,9 +57,10 @@ const orderSchema = new mongoose.Schema(
       postalCode: {
         type: String,
         trim: true,
-        required: true,
+        // required: true,
         maxlength: [10, "Postal code cannot exceed 10 characters"],
       },
+      notes: { type: String, trim: true }, // Optional notes for the delivery
       country: { type: String, trim: true, required: true },
     },
   },

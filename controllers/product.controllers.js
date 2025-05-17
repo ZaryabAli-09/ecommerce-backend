@@ -6,6 +6,7 @@ import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
+import { Review } from "../models/review.model.js";
 
 async function createProduct(req, res, next) {
   const sellerId = req.seller._id;
@@ -207,6 +208,8 @@ async function deleteProduct(req, res, next) {
         "Error occur while deleting product. Please try again."
       );
     }
+    // Delete all reviews associated with the product
+    await Review.deleteMany({ product: productId });
 
     const productToBeDeleted = await Product.findByIdAndDelete(productId);
 
@@ -251,6 +254,8 @@ async function adminDeleteProduct(req, res, next) {
         "Error occur while deleting product. Please try again."
       );
     }
+    // Delete all reviews associated with the product
+    await Review.deleteMany({ product: productId });
 
     const productToBeDeleted = await Product.findByIdAndDelete(productId);
 
