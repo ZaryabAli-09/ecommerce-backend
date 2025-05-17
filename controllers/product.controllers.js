@@ -661,7 +661,9 @@ const getProductsByCategory = async (req, res, next) => {
     const totalProducts = await Product.countDocuments(categoryFilter);
     const products = await Product.find(categoryFilter)
       .populate("categories", "name")
-      .select("seller name description sold categories variants") // Populating only name
+      .select(
+        "seller name description sold categories variants numReviews rating"
+      )
       .sort(sortOption)
       .skip(skip)
       .limit(parseInt(limit));
