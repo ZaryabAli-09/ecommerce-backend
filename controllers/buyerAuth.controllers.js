@@ -598,7 +598,10 @@ async function googleAuth(req, res, next) {
     // Get user info from Google
     const { name, email } = ticket.getPayload();
 
-    let buyer = await Buyer.findOne({ email });
+    let buyer = await Buyer.findOne({ email }).populate({
+      path: "cart.product",
+      select: "name price images",
+    });
 
     // if user is not registered save the user in db and directly login the user to website
     if (!buyer) {
@@ -612,6 +615,9 @@ async function googleAuth(req, res, next) {
         name,
         email,
         password: hashedPassword,
+        isVerified: true,
+        wishlist: [],
+        cart: [],
       });
 
       // Update user verification status
@@ -641,15 +647,27 @@ async function googleAuth(req, res, next) {
       .cookie("access_token", access_token, {
         httpOnly: true,
         secure: true,
+        maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day
         sameSite: "None",
       })
       .cookie("refresh_token", refresh_token, {
         httpOnly: true,
         secure: true,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         sameSite: "None",
       })
 
-      .json(new ApiResponse(buyer, "Logged in with google successfully."));
+      .json(
+        new ApiResponse(
+          {
+            id: buyer._id,
+            name: buyer.name,
+            wishlistItemsCount: buyer.wishlist.length,
+            cartItemsCount: getBuyerCartItemsCount(buyer.cart),
+          },
+          "Logged in with Google successfully."
+        )
+      );
   } catch (error) {
     next(error);
   }
