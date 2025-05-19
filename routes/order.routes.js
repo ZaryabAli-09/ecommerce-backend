@@ -26,7 +26,10 @@ router.patch("/update-status/:orderId", verifySeller, updateOrderStatus);
 // user / buyer routes
 router.get("/my", verifyUser, myOrders);
 router.post("/new", verifyUser, newOrder);
-router.post("/checkout-session", newOrderStripeCheckout);
+
+// new
+router.post("/checkout-session", verifyUser, newOrderStripeCheckout);
+
 router.get("/confirm-stripe-payment", confirmStripePayment);
 
 router.get("/:orderId", getOrderDetails);

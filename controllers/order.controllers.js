@@ -243,8 +243,9 @@ async function newOrder(req, res, next) {
 async function newOrderStripeCheckout(req, res, next) {
   try {
     let { orderItems, paymentMethod, shippingAddress } = req.body;
-    const userId = req.body.buyerId; // Assuming buyerId is passed in the request body
-    // Validate inputs
+
+    const userId = req.buyer._id;
+
     if (!orderItems || orderItems.length === 0) {
       throw new ApiError(400, "Order items cannot be empty.");
     }
@@ -363,7 +364,7 @@ async function newOrderStripeCheckout(req, res, next) {
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: `${process.env.SELLER_FRONTEND_DOMAIN_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.FRONTEND_DOMAIN_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_DOMAIN_URL}/payment-failure`,
 
       metadata: {
