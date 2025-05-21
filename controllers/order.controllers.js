@@ -14,7 +14,13 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 async function newOrder(req, res, next) {
   try {
     let { orderItems, paymentMethod, shippingAddress } = req.body;
+
+    // make sure to get the userId from the request.buyer._id
+    // const userId = req.body.buyerId;
     const userId = req.buyer._id;
+    if (!userId) {
+      throw new ApiError(400, "User ID is required.");
+    }
     // Validate inputs
     if (!orderItems || orderItems.length === 0) {
       throw new ApiError(400, "Order items cannot be empty.");
@@ -35,7 +41,7 @@ async function newOrder(req, res, next) {
     const populatedOrderItems = await Promise.all(
       orderItems.map(async (item) => {
         const product = await Product.findById(item.product)
-          .select("seller variants")
+          .select("seller variants name images")
           .exec();
 
         if (!product) throw new Error(`Product not found: ${item.product}`);
@@ -60,6 +66,15 @@ async function newOrder(req, res, next) {
             discountedPrice: selectedVariant.discountedPrice || null,
             seller: product.seller,
           },
+          productName: product.name,
+          productImage:
+            selectedVariant.images[0]?.url || "https://placehold.co/50x50",
+          variantColor: selectedVariant.color || "N/A",
+          variantSize: selectedVariant.size || "N/A",
+          priceAtPurchase:
+            selectedVariant.discountedPrice > 0
+              ? selectedVariant.discountedPrice
+              : selectedVariant.price,
         };
       })
     );
@@ -75,13 +90,10 @@ async function newOrder(req, res, next) {
     }
 
     // Calculate total amount for the order
-    const totalAmount = populatedOrderItems.reduce((sum, item) => {
-      const itemPrice =
-        item.product.discountedPrice > 0
-          ? item.product.discountedPrice
-          : item.product.price;
-      return sum + itemPrice * item.quantity;
-    }, 0);
+    const totalAmount = populatedOrderItems.reduce(
+      (sum, item) => sum + item.priceAtPurchase * item.quantity,
+      0
+    );
 
     // First check stock availability for all items
     await Promise.all(
@@ -225,12 +237,12 @@ async function newOrder(req, res, next) {
     }
 
     // Notify the buyer
-    await sendEmailHtml(
-      process.env.SMTP_GMAIL_USER,
-      req.buyer.email,
-      "Order Placed Successfully",
-      CustomerEmailTemplate
-    );
+    // await sendEmailHtml(
+    //   process.env.SMTP_GMAIL_USER,
+    //   req.buyer.email,
+    //   "Order Placed Successfully",
+    //   CustomerEmailTemplate
+    // );
 
     return res
       .status(200)
@@ -244,7 +256,18 @@ async function newOrderStripeCheckout(req, res, next) {
   try {
     let { orderItems, paymentMethod, shippingAddress } = req.body;
 
+    // make sure to get the userId from the request.buyer._id
+    // const userId = req.body.buyerId;
     const userId = req.buyer._id;
+    if (!userId) {
+      throw new ApiError(400, "User ID is required.");
+    }
+
+    if (!userId) {
+      throw new ApiError(400, "User ID is required.");
+    }
+
+    console.log(userId);
 
     if (!orderItems || orderItems.length === 0) {
       throw new ApiError(400, "Order items cannot be empty.");
@@ -265,7 +288,7 @@ async function newOrderStripeCheckout(req, res, next) {
     const populatedOrderItems = await Promise.all(
       orderItems.map(async (item) => {
         const product = await Product.findById(item.product)
-          .select("seller variants name")
+          .select("seller variants name images")
           .exec();
 
         if (!product) throw new Error(`Product not found: ${item.product}`);
@@ -292,6 +315,15 @@ async function newOrderStripeCheckout(req, res, next) {
             image: selectedVariant.images[0].url,
             seller: product.seller,
           },
+          productName: product.name,
+          productImage:
+            selectedVariant.images[0]?.url || "https://placehold.co/50x50",
+          variantColor: selectedVariant.color || "N/A",
+          variantSize: selectedVariant.size || "N/A",
+          priceAtPurchase:
+            selectedVariant.discountedPrice > 0
+              ? selectedVariant.discountedPrice
+              : selectedVariant.price,
         };
       })
     );
@@ -307,14 +339,10 @@ async function newOrderStripeCheckout(req, res, next) {
     }
 
     // Calculate total amount for the order
-    const totalAmount = populatedOrderItems.reduce((sum, item) => {
-      const itemPrice =
-        item.product.discountedPrice > 0
-          ? item.product.discountedPrice
-          : item.product.price;
-      return sum + itemPrice * item.quantity;
-    }, 0);
-
+    const totalAmount = populatedOrderItems.reduce(
+      (sum, item) => sum + item.priceAtPurchase * item.quantity,
+      0
+    );
     // First check stock availability for all items
     await Promise.all(
       orderItems.map(async (item) => {
@@ -364,8 +392,8 @@ async function newOrderStripeCheckout(req, res, next) {
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: `${process.env.FRONTEND_DOMAIN_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_DOMAIN_URL}/payment-failure`,
+      success_url: `${process.env.SELLER_FRONTEND_DOMAIN_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.SELLER_FRONTEND_DOMAIN_URL}/payment-failure`,
 
       metadata: {
         userId: userId.toString(),
@@ -466,6 +494,15 @@ async function confirmStripePayment(req, res, next) {
             image: selectedVariant.images[0].url,
             seller: product.seller,
           },
+          productName: product.name,
+          productImage:
+            selectedVariant.images[0]?.url || "https://placehold.co/50x50",
+          variantColor: selectedVariant.color || "N/A",
+          variantSize: selectedVariant.size || "N/A",
+          priceAtPurchase:
+            selectedVariant.discountedPrice > 0
+              ? selectedVariant.discountedPrice
+              : selectedVariant.price,
         };
       })
     );

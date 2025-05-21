@@ -14,6 +14,28 @@ const orderItemSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+
+  // Add these minimal snapshot fields
+  productName: {
+    type: String,
+    required: true,
+  },
+  productImage: {
+    type: String,
+    required: true,
+  },
+  variantColor: {
+    type: String,
+    required: true,
+  },
+  variantSize: {
+    type: String,
+    required: true,
+  },
+  priceAtPurchase: {
+    type: Number,
+    required: true,
+  },
 });
 
 const orderSchema = new mongoose.Schema(
