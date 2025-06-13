@@ -397,9 +397,7 @@ async function getAllProducts(req, res, next) {
     const products = await Product.find(
       {},
       { name: 1, numReviews: 1, rating: 1, sold: 1, variants: 1 }
-    );
-    // .populate("reviews")
-    // .populate("seller");
+    ).populate("seller", "brandName"); // Populate categories and select only name{
 
     res
       .status(200)
@@ -661,6 +659,7 @@ const getProductsByCategory = async (req, res, next) => {
     const totalProducts = await Product.countDocuments(categoryFilter);
     const products = await Product.find(categoryFilter)
       .populate("categories", "name")
+      .populate("seller", "brandName ")
       .select(
         "seller name description sold categories variants numReviews rating"
       )
