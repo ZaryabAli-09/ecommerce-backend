@@ -1035,9 +1035,14 @@ const getOrderDetails = async (req, res, next) => {
 async function myOrders(req, res, next) {
   try {
     const orders = await Order.find({ orderBy: req.buyer._id })
-      .populate("orderItems.product", "name price images")
-      .populate("orderBy", "email name");
-
+      .populate("orderBy", "name email") // Populate buyer details
+      .populate({
+        path: "orderItems.product", // Renamed from `subOrders.orderItems.product`
+        select: "name variants", // Populate product details with variants
+      })
+      .populate("seller", "brandName") // Populate seller details
+      .sort({ createdAt: -1 }) // Newest first
+      .exec();
     if (!orders || orders.length === 0) {
       return res.status(404).json({ message: "No orders found." });
     }
