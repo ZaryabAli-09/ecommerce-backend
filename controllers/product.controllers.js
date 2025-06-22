@@ -394,14 +394,30 @@ async function adminUpdateProduct(req, res, next) {
 }
 async function getAllProducts(req, res, next) {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 15; // Always load 15 products per page
+    const skip = (page - 1) * limit; // Calculate skip based on page
     const products = await Product.find(
       {},
       { name: 1, numReviews: 1, rating: 1, sold: 1, variants: 1 }
-    ).populate("seller", "brandName"); // Populate categories and select only name{
+    )
+      .populate("seller", "brandName")
+      .skip(skip)
+      .limit(limit);
 
-    res
-      .status(200)
-      .json(new ApiResponse(products, "All products retrieved successfully."));
+    const totalProducts = await Product.countDocuments();
+
+    res.status(200).json(
+      new ApiResponse(
+        {
+          products,
+          currentPage: page,
+          hasMore: skip + limit < totalProducts,
+          totalProducts,
+        },
+        "Products retrieved successfully."
+      )
+    );
   } catch (error) {
     next(error);
   }
