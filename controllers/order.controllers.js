@@ -164,31 +164,14 @@ async function newOrder(req, res, next) {
       <p style="color: #4a5568;">You have received a new order.</p>
       <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
         <p style="margin: 5px 0;"><strong>Order ID:</strong>  ${order._id}</p>
-        <p style="margin: 5px 0;"><strong>Total Amount:</strong>  ${
-          order.totalAmount
-        }</p>
-        <p style="margin: 5px 0;"><strong>Payment Method:</strong>  ${
-          order.paymentMethod
-        }</p>
-        <p style="margin: 5px 0;"><strong>Custmer Email:</strong>  ${
-          req.buyer?.email
-        }</p>
+        <p style="margin: 5px 0;"><strong>Total Amount:</strong>  ${order.totalAmount}</p>
+        <p style="margin: 5px 0;"><strong>Payment Method:</strong>  ${order.paymentMethod}</p>
+        <p style="margin: 5px 0;"><strong>Custmer Email:</strong>  ${req.buyer?.email}</p>
         <p style="margin: 5px 0;"><strong>Shipping Address:</strong></p>
         <p style="margin: 5px 0;">${shippingAddress.street}</p>
-        <p style="margin: 5px 0;">${shippingAddress.city}, ${
-      shippingAddress.state
-    }</p>
-        <p style="margin: 5px 0;">${shippingAddress.postalCode}</p>
+        <p style="margin: 5px 0;">${shippingAddress.city}, ${shippingAddress.state}</p>
         <p style="margin: 5px 0;">${shippingAddress.country}</p>
-        <p style="margin: 5px 0;"><strong>Order Items:</strong></p>
-        <ul style="list-style-type: none; padding: 0;">
-          ${populatedOrderItems
-            .map(
-              (item) =>
-                `<li style="margin: 5px 0;">${item.product.name} - ${item.quantity} pcs</li>`
-            )
-            .join("")}
-        </ul>
+      
       </div>  
       
     </div>
@@ -201,28 +184,12 @@ async function newOrder(req, res, next) {
     <p style="color: #4a5568;">Your order has been placed successfully.</p>
     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
       <p style="margin: 5px 0;"><strong>Order ID:</strong>  ${order._id}</p>
-      <p style="margin: 5px 0;"><strong>Total Amount:</strong>  ${
-        order.totalAmount
-      }</p>
-      <p style="margin: 5px 0;"><strong>Payment Method:</strong>  ${
-        order.paymentMethod
-      }</p>
+      <p style="margin: 5px 0;"><strong>Total Amount:</strong>  ${order.totalAmount}</p>
+      <p style="margin: 5px 0;"><strong>Payment Method:</strong>  ${order.paymentMethod}</p>
       <p style="margin: 5px 0;"><strong>Shipping Address:</strong></p>
       <p style="margin: 5px 0;">${shippingAddress.street}</p>
-      <p style="margin: 5px 0;">${shippingAddress.city}, ${
-      shippingAddress.state
-    }</p>
-      <p style="margin: 5px 0;">${shippingAddress.postalCode}</p>
+      <p style="margin: 5px 0;">${shippingAddress.city}, ${shippingAddress.state}</p>
       <p style="margin: 5px 0;">${shippingAddress.country}</p>
-      <p style="margin: 5px 0;"><strong>Order Items:</strong></p>
-      <ul style="list-style-type: none; padding: 0;">
-        ${populatedOrderItems
-          .map(
-            (item) =>
-              `<li style="margin: 5px 0;">${item.product.name} - ${item.quantity} pcs</li>`
-          )
-          .join("")}
-      </ul>
     </div>  
     
   </div>
@@ -237,12 +204,12 @@ async function newOrder(req, res, next) {
     }
 
     // Notify the buyer
-    // await sendEmailHtml(
-    //   process.env.SMTP_GMAIL_USER,
-    //   req.buyer.email,
-    //   "Order Placed Successfully",
-    //   CustomerEmailTemplate
-    // );
+    await sendEmailHtml(
+      process.env.SMTP_GMAIL_USER,
+      req.buyer.email,
+      "Order Placed Successfully",
+      CustomerEmailTemplate
+    );
 
     return res
       .status(200)
@@ -392,8 +359,8 @@ async function newOrderStripeCheckout(req, res, next) {
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: `${process.env.SELLER_FRONTEND_DOMAIN_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.SELLER_FRONTEND_DOMAIN_URL}/payment-failure`,
+      success_url: `${process.env.FRONTEND_DOMAIN_URL}/order/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_DOMAIN_URL}/order/payment-failure`,
 
       metadata: {
         userId: userId.toString(),

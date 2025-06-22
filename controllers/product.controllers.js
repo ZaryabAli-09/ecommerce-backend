@@ -613,6 +613,7 @@ async function getSingleProduct(req, res, next) {
 async function getSingleProductForSeller(req, res, next) {
   try {
     const { productId } = req.params;
+    console.log(productId);
     const product = await Product.findById(productId)
       .populate({
         path: "reviews",
@@ -621,6 +622,7 @@ async function getSingleProductForSeller(req, res, next) {
           select: "name", // Select only the 'name' field from 'user'
         },
       })
+      .populate("seller", "brandName logo") // Populate 'seller' and select 'brandName' and 'logo'
       .populate("categories", "name"); // Populate 'categories' and select only 'name'
     res
       .status(200)
