@@ -3,6 +3,7 @@ import { Product } from "../models/product.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import getBuyerCartItemsCount from "../utils/getBuyerCartItemsCount.js";
+import { Buyer } from "../models/buyer.models.js";
 
 async function addToCartItems(req, res, next) {
   try {
@@ -86,10 +87,8 @@ async function addToCartItems(req, res, next) {
     next(error);
   }
 }
-// Get Cart Items Controller
 async function getCartItems(req, res, next) {
   try {
-    // credenetials must include as this controller will get buyer from token
     let buyer = req.buyer;
 
     // Validate buyer
@@ -104,7 +103,7 @@ async function getCartItems(req, res, next) {
         .json(new ApiResponse({ cart: [] }, "Cart is empty"));
     }
 
-    // populate the response
+    // Populate the cart items with product and variant data
     buyer = await buyer.populate({
       path: "cart.product",
       select: "name seller variants",
@@ -120,29 +119,42 @@ async function getCartItems(req, res, next) {
       ],
     });
 
-    // Format cart items
-    // it will only format/structure the response nothing else
+    // Identify invalid items to remove and format valid items
+    const itemsToRemove = [];
     const formattedCart = buyer.cart
       .map((item) => {
-        const variant =
-          item.product?.variants?.find(
-            (v) => v?._id?.toString() === item.variant?.toString()
-          ) || null;
+        const product = item.product;
+        const variant = product?.variants?.find(
+          (v) => v?._id?.toString() === item.variant?.toString()
+        );
+
+        // Check if product or variant is missing
+        if (!product || !variant) {
+          itemsToRemove.push(item._id);
+          return null;
+        }
 
         return {
           _id: item._id,
-          product: item.product
-            ? {
-                _id: item.product._id,
-                name: item.product.name,
-                seller: item.product.seller,
-              }
-            : null,
+          product: {
+            _id: product._id,
+            name: product.name,
+            seller: product.seller,
+          },
           variant,
           quantity: item.quantity,
         };
       })
-      .filter((item) => item.product && item.variant); // if there is cart which misses product or variant id then it will be filtered out simply
+      .filter(Boolean); // Remove null entries
+
+    // Remove invalid items from database if any were found
+    if (itemsToRemove.length > 0) {
+      await Buyer.updateOne(
+        { _id: buyer._id },
+        { $pull: { cart: { _id: { $in: itemsToRemove } } } }
+      );
+    }
+
     res
       .status(200)
       .json(
@@ -156,7 +168,6 @@ async function getCartItems(req, res, next) {
     next(error);
   }
 }
-
 // (to zaryab) I am using addToCartItems controller above to increment the qunatity of an item in cart and this one is specifically to decrement the quantity of an item in cart, I modified it, its name, its code
 async function decrementCartItemQuantity(req, res, next) {
   try {
@@ -284,46 +295,69 @@ async function addIItemToWishlist(req, res, next) {
 
 async function getWishList(req, res, next) {
   try {
-    let buyer = req.buyer;
+    const buyer = req.buyer;
 
     if (!buyer) {
       throw new ApiError(400, "Buyer not found.");
     }
 
-    // Populate only selected fields from Product
+    // First populate the product references
     await buyer.populate({
       path: "wishlist.product",
       select: "name rating numReviews reviews variants",
     });
 
-    const wishlist = buyer.wishlist
-      .map((item) => {
-        const product = item.product;
+    // Identify invalid items
+    const validItems = [];
+    const invalidItemIds = [];
 
-        if (!product) return null; // In case product reference is broken
+    buyer.wishlist.forEach((item) => {
+      const product = item.product;
+      if (!product) {
+        invalidItemIds.push(item._id);
+        return;
+      }
 
-        // Find the specific variant by ID
-        const selectedVariant = product.variants.find(
-          (v) => v._id.toString() === item.variant.toString()
-        );
+      const variantExists = product.variants.some(
+        (v) =>
+          v._id && item.variant && v._id.toString() === item.variant.toString()
+      );
 
-        return {
-          _id: item._id,
-          product: {
-            _id: product._id,
-            name: product.name,
-            rating: product.rating,
-            numReviews: product.numReviews,
-            reviews: product.reviews,
-          },
-          variant: selectedVariant,
-        };
-      })
-      .filter(Boolean); // Filter out any nulls from broken refs
+      if (!variantExists) {
+        invalidItemIds.push(item._id);
+      } else {
+        validItems.push(item);
+      }
+    });
+
+    // Remove invalid items from database if any were found
+    if (invalidItemIds.length > 0) {
+      await Buyer.updateOne(
+        { _id: buyer._id },
+        { $pull: { wishlist: { _id: { $in: invalidItemIds } } } }
+      );
+    }
+
+    // Prepare the response with only valid items
+    const wishlistResponse = validItems.map((item) => ({
+      _id: item._id,
+      product: {
+        _id: item.product._id,
+        name: item.product.name,
+        rating: item.product.rating,
+        numReviews: item.product.numReviews,
+        reviews: item.product.reviews,
+      },
+      variant: item.product.variants.find(
+        (v) => v._id.toString() === item.variant.toString()
+      ),
+    }));
 
     res
       .status(200)
-      .json(new ApiResponse(wishlist, "Wishlist retrieved successfully."));
+      .json(
+        new ApiResponse(wishlistResponse, "Wishlist retrieved successfully.")
+      );
   } catch (error) {
     next(error);
   }
