@@ -29,7 +29,7 @@ const handleImageType = (type) => (req, res, next) => {
 router.get("/all", getAllSellers);
 router.put("/admin/update/:sellerId", verifyAdmin, updateSeller);
 
-router.get("/details/:sellerId", verifyAdmin, getSellerDetailsForAdminPanel);
+router.get("/details/:sellerId", getSellerDetailsForAdminPanel);
 router.get("/pending", verifyAdmin, getPendingSellers);
 router.delete("/delete/:sellerId", verifyAdmin, deleteSeller);
 router.get("/billingInfo", verifyAdmin, getSellerBillingInfo);

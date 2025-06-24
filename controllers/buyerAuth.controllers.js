@@ -22,7 +22,13 @@ async function verifyEmail(req, res, next) {
 
     // *** Extract auth jwt from req cookies ***
 
-    const verificationToken = req.cookies.verificationToken;
+    let verificationToken = req.cookies.verificationToken;
+
+    if (!verificationToken && req.headers.authorization.startsWith("Bearer ")) {
+      verificationToken = req.headers.authorization.split(" ")[1];
+
+      console.log("for mobile verification token = ", verificationToken);
+    }
 
     if (!verificationToken) {
       throw new ApiError(400, "Verification token not found.");
@@ -205,7 +211,9 @@ Use above otp to verify your account.      </p>
       .status(201)
       .json(
         new ApiResponse(
-          null,
+          {
+            token: verificationToken,
+          },
           "Registered successfully. OTP is sent to your email for verification."
         )
       );
@@ -276,32 +284,58 @@ async function login(req, res, next) {
         process.env.REFRESH_TOKEN_SECRET_KEY,
         { expiresIn: "10d" }
       );
-
       return res
-        .status(200)
         .cookie("access_token", access_token, {
           httpOnly: true,
           secure: true,
-          maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day
+          maxAge: 1 * 24 * 60 * 60 * 1000,
           sameSite: "None",
         })
         .cookie("refresh_token", refresh_token, {
           httpOnly: true,
           secure: true,
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          maxAge: 7 * 24 * 60 * 60 * 1000,
           sameSite: "None",
         })
-        .json(
-          new ApiResponse(
-            {
-              id: buyer._id,
-              name: buyer.name,
-              wishlistItemsCount: buyer.wishlist.length,
-              cartItemsCount: getBuyerCartItemsCount(buyer.cart),
-            },
-            "Logged in successfully."
-          )
-        );
+        .status(200)
+        .json({
+          message: "Logged in successfully.",
+          data: {
+            id: buyer._id,
+            name: buyer.name,
+            wishlistItemsCount: buyer.wishlist.length,
+            cartItemsCount: getBuyerCartItemsCount(buyer.cart),
+          },
+          tokens: {
+            access_token,
+            refresh_token,
+          },
+        });
+      // return res
+      //   .status(200)
+      //   .cookie("access_token", access_token, {
+      //     httpOnly: true,
+      //     secure: true,
+      //     maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day
+      //     sameSite: "None",
+      //   })
+      //   .cookie("refresh_token", refresh_token, {
+      //     httpOnly: true,
+      //     secure: true,
+      //     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      //     sameSite: "None",
+      //   })
+      //   .json(
+      //     new ApiResponse(
+      //       {
+      //         id: buyer._id,
+      //         name: buyer.name,
+      //         wishlistItemsCount: buyer.wishlist.length,
+      //         cartItemsCount: getBuyerCartItemsCount(buyer.cart),
+      //       },
+      //       "Logged in successfully."
+      //     )
+      //   );
     }
 
     // Handle unverified user
@@ -351,17 +385,30 @@ async function login(req, res, next) {
           expiresIn: "1d",
         }
       );
+
       return res
         .cookie("verificationToken", verificationToken, {
           httpOnly: true,
           secure: true,
           sameSite: "none",
-          maxAge: 24 * 60 * 60 * 1000, // 1 day
+          maxAge: 24 * 60 * 60 * 1000,
         })
         .status(400)
         .json({
-          message: "Your account is not verified. Otp is sent to your email..",
+          message: "Your account is not verified. OTP is sent to your email.",
+          token: verificationToken, // 👈 include this for mobile use
         });
+      // return res
+      //   .cookie("verificationToken", verificationToken, {
+      //     httpOnly: true,
+      //     secure: true,
+      //     sameSite: "none",
+      //     maxAge: 24 * 60 * 60 * 1000, // 1 day
+      //   })
+      //   .status(400)
+      //   .json({
+      //     message: "Your account is not verified. Otp is sent to your email..",
+      //   });
     }
   } catch (error) {
     next(error);
