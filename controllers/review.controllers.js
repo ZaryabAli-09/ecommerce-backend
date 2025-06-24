@@ -3,6 +3,7 @@ import { Review } from "../models/review.model.js";
 import { Buyer } from "../models/buyer.models.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import { Order } from "../models/order.model.js";
 
 async function addReview(req, res, next) {
   try {
@@ -38,7 +39,19 @@ async function addReview(req, res, next) {
     if (existingReview) {
       throw new ApiError(400, "You have already reviewed this product.");
     }
+    // Check if the buyer has purchased this product and it is shipped or delivered
+    const order = await Order.findOne({
+      orderBy: buyerId,
+      status: { $in: ["shipped", "delivered"] },
+      "orderItems.product": productId,
+    });
 
+    if (!order) {
+      throw new ApiError(
+        400,
+        "You can only review products you have purchased and that have been shipped."
+      );
+    }
     const review = new Review({
       product: productId,
       user: buyerId, // Updated field name
