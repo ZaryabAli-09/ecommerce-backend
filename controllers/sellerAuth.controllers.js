@@ -461,7 +461,6 @@ async function approveSeller(req, res, next) {
   try {
     const { sellerId } = req.params;
 
-    console.log(sellerId);
     // Find the seller
     const seller = await Seller.findById(sellerId);
     if (!seller) {

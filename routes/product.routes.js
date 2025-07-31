@@ -160,7 +160,6 @@ router.get("/reels/liked", getBuyer, async (req, res, next) => {
 // LIKE a reel
 router.post("/reels/like/:reelId", getBuyer, async (req, res, next) => {
   try {
-    console.log("hello from like");
     const { reelId } = req.params;
     const buyer = await Buyer.findById(req.buyer._id);
 
@@ -179,10 +178,8 @@ router.post("/reels/like/:reelId", getBuyer, async (req, res, next) => {
 
     if (!alreadyLiked) {
       // Ensure it's a number before incrementing
-      console.log("Before increment:", reel.likes); // Debug
       reel.likes = typeof reel.likes === "number" ? reel.likes + 1 : 1;
-      console.log("After increment:", reel.likes); // Debug      await reel.save();
-      console.log("hello from like");
+
       buyer.likedReels = buyer.likedReels || [];
       buyer.likedReels.push({ reel: reelId });
 
@@ -216,7 +213,6 @@ router.delete("/reels/like/:reelId", getBuyer, async (req, res, next) => {
 
     if (likedIndex !== -1) {
       reel.likes -= 1;
-      console.log("hello from unlike");
       if (reel.likes < 0) reel.likes = 0; // Ensure likes don't go negative
       buyer.likedReels.splice(likedIndex, 1);
 

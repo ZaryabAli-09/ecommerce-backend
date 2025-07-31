@@ -27,9 +27,7 @@
 //       } catch (error) {
 //         // If access token is expired, log the error and proceed to refresh token
 //         if (error.name === "TokenExpiredError") {
-//           console.log(
-//             "Access token expired. Proceeding to verify refresh token..."
-//           );
+//
 //         } else {
 //           throw new ApiError(401, "Invalid access token.");
 //         }
@@ -62,7 +60,6 @@
 //       });
 
 //       req.buyer = buyer; // Attach user to request
-//       console.log("New access token issued.");
 //       return next();
 //     } catch (refreshError) {
 //       if (refreshError.name === "TokenExpiredError") {
@@ -121,9 +118,9 @@ async function verifyUser(req, res, next) {
       } catch (error) {
         // If access token is expired, log the error and proceed to refresh token
         if (error.name === "TokenExpiredError") {
-          // console.log(
-          //   "Access token expired. Proceeding to verify refresh token..."
-          // );
+          console.log(
+            "Access token expired. Proceeding to verify refresh token..."
+          );
         } else {
           throw new ApiError(401, "Invalid access token.");
         }
@@ -156,7 +153,7 @@ async function verifyUser(req, res, next) {
       });
 
       req.buyer = buyer; // Attach user to request
-      // console.log("New access token issued.");
+      console.log("New access token issued.");
       return next();
     } catch (refreshError) {
       if (refreshError.name === "TokenExpiredError") {

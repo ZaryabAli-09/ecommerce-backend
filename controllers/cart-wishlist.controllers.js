@@ -10,7 +10,6 @@ async function addToCartItems(req, res, next) {
     const { productId, variantId } = req.params;
 
     if (!productId || !variantId) {
-      console.log("Product Id and Variant Id are required.");
       throw new ApiError(400, "Product Id and Variant Id are required.");
     }
 
@@ -257,7 +256,6 @@ async function addIItemToWishlist(req, res, next) {
     const { productId, variantId } = req.params;
 
     if (!productId || !variantId) {
-      console.log("Product Id and Variant Id are required.");
       throw new ApiError(400, "Product Id and Variant Id are required.");
     }
 

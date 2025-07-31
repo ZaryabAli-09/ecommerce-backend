@@ -71,7 +71,6 @@ async function adminUpdateCredentials(req, res, next) {
       throw new ApiError(401, "Unauthorized access.");
     }
 
-    console.log(email, password);
     const updates = {};
     if (email) updates.email = email;
     if (password) updates.password = bcryptjs.hashSync(password, 12);
@@ -104,7 +103,6 @@ const addAdmin = async (req, res, next) => {
       );
     }
     const { email, password } = req.body;
-    console.log(email, password);
     // Check if admin already exists
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {

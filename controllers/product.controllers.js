@@ -194,7 +194,6 @@ async function deleteProduct(req, res, next) {
       variant.images.map((image) => image.public_id)
     );
 
-    console.log(allImagesPublicIds);
     // Delete images from Cloudinary
     const deleteProductImages = allImagesPublicIds.map((publicId) => {
       return cloudinary.uploader.destroy(publicId);
@@ -240,7 +239,6 @@ async function adminDeleteProduct(req, res, next) {
       variant.images.map((image) => image.public_id)
     );
 
-    console.log(allImagesPublicIds);
     // Delete images from Cloudinary
     const deleteProductImages = allImagesPublicIds.map((publicId) => {
       return cloudinary.uploader.destroy(publicId);
@@ -613,7 +611,6 @@ async function getSingleProduct(req, res, next) {
 async function getSingleProductForSeller(req, res, next) {
   try {
     const { productId } = req.params;
-    console.log(productId);
     const product = await Product.findById(productId)
       .populate({
         path: "reviews",
@@ -673,7 +670,6 @@ const getProductsByCategory = async (req, res, next) => {
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    console.log(categoryFilter);
     const totalProducts = await Product.countDocuments(categoryFilter);
     const products = await Product.find(categoryFilter)
       .populate("categories", "name")
@@ -745,7 +741,6 @@ async function getStoreProducts(req, res, next) {
       },
       { name: 1, numReviews: 1, rating: 1, sold: 1, variants: 1 }
     );
-    console.log(storeAllProducts);
 
     res
       .status(200)

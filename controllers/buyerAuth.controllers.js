@@ -26,8 +26,6 @@ async function verifyEmail(req, res, next) {
 
     if (!verificationToken && req.headers.authorization.startsWith("Bearer ")) {
       verificationToken = req.headers.authorization.split(" ")[1];
-
-      console.log("for mobile verification token = ", verificationToken);
     }
 
     if (!verificationToken) {
@@ -61,8 +59,6 @@ async function verifyEmail(req, res, next) {
       verificationOtp,
       buyer.verificationOtp
     );
-
-    // console.log(isVerificationOtpValid);
 
     if (!isVerificationOtpValid) {
       throw new ApiError(400, "Invalid Otp.");

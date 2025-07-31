@@ -234,8 +234,6 @@ async function newOrderStripeCheckout(req, res, next) {
       throw new ApiError(400, "User ID is required.");
     }
 
-    console.log(userId);
-
     if (!orderItems || orderItems.length === 0) {
       throw new ApiError(400, "Order items cannot be empty.");
     }

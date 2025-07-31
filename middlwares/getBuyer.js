@@ -20,7 +20,6 @@ import jwt from "jsonwebtoken";
 //     req.buyer = buyer;
 //     next();
 //   } catch (error) {
-//     console.log(error.message);
 //     next(error);
 //   }
 // }
