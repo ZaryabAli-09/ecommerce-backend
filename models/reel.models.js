@@ -14,6 +14,10 @@ const reelSchema = new mongoose.Schema(
     caption: {
       type: String,
     },
+    likes: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

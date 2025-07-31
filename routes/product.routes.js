@@ -19,6 +19,15 @@ import { uploadFileUsingMulter } from "../middlwares/multerMiddleware.js";
 import getBuyer from "../middlwares/getBuyer.js";
 import { verifySeller } from "../middlwares/verifySeller.js";
 import { verifyAdmin } from "../middlwares/verifyAdmin.js";
+import Reel from "../models/reel.models.js";
+import upload from "../middlwares/videoMulter.js";
+import cloudinary from "../config/cloudinaryVideo.js";
+import fs from "fs";
+import { ApiError } from "../utils/apiError.js";
+import { ApiResponse } from "../utils/apiResponse.js";
+import { Buyer } from "../models/buyer.models.js";
+import { Product } from "../models/product.model.js";
+
 const router = express.Router();
 // admin routes
 router.delete("/admin/delete/:productId", verifyAdmin, adminDeleteProduct);
@@ -44,21 +53,28 @@ router.get("/search", searchProducts);
 
 router.get("/store-products/:storeId", getStoreProducts);
 
-import Reel from "../models/reel.models.js";
-import upload from "../middlwares/videoMulter.js";
-import cloudinary from "../config/cloudinaryVideo.js";
-import fs from "fs";
 router.post(
   "/reels/upload",
   upload.single("video"),
   verifySeller,
 
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const file = req.file;
 
       // 1. Validate
-      if (!file) return res.status(400).json({ error: "No file uploaded" });
+      if (!req.body.caption) {
+        throw new ApiError(400, "ProductId  is required.");
+      }
+      if (!req.seller) {
+        throw new ApiError(401, "Unauthorized. Seller not found.");
+      }
+      if (!file) {
+        throw new ApiError(400, "No video file uploaded.");
+      }
+      if (!file.mimetype.startsWith("video/")) {
+        throw new ApiError(400, "File must be a video.");
+      }
 
       // 2. Upload to Cloudinary
       const result = await cloudinary.uploader.upload(file.path, {
@@ -73,9 +89,7 @@ router.post(
         await cloudinary.uploader.destroy(result.public_id, {
           resource_type: "video",
         });
-        return res
-          .status(400)
-          .json({ error: "Video must be 30 seconds or less." });
+        throw new ApiError(400, "Video duration must be less than 30 seconds.");
       }
 
       // 4. Save to DB
@@ -92,24 +106,167 @@ router.post(
 
       res
         .status(200)
-        .json({ message: "Reel uploaded successfully!", reel: newReel });
+        .json(new ApiResponse({ reel: newReel }, "Reel uploaded successfully"));
     } catch (err) {
       console.log(err);
-      res.status(500).json({ error: "Upload failed", details: err.message });
+      next(err);
     }
   }
 );
 // controllers/getReelsController.js
 
-router.get("/reels/get", async (req, res) => {
+router.get("/reels/get", async (req, res, next) => {
   try {
     const reels = await Reel.find()
       .populate("uploadedBy", "brandName")
       .sort({ createdAt: -1 }); // Sort by createdAt in descending order // Latest first
-    console.log(reels);
-    res.status(200).json(reels);
+
+    if (!reels || reels.length === 0) {
+      throw new ApiError(404, "No reels found");
+    }
+    // Ensure reels are populated with uploadedBy brandName
+    reels.forEach((reel) => {
+      reel.uploadedBy = reel.uploadedBy || { brandName: "Unknown" }; // Fallback if no brandName
+    });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(reels, "Reels fetched successfully"));
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch reels" });
+    next(error);
+  }
+});
+
+router.get("/reels/liked", getBuyer, async (req, res, next) => {
+  try {
+    const buyer = await Buyer.findById(req.buyer._id).populate(
+      "likedReels.reel"
+    );
+
+    if (!buyer) {
+      throw new ApiError(401, "Unauthorized. Buyer not found.");
+    }
+
+    const likedReels = buyer.likedReels.map((item) => item.reel);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(likedReels, "✅ Liked reels fetched"));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// LIKE a reel
+router.post("/reels/like/:reelId", getBuyer, async (req, res, next) => {
+  try {
+    console.log("hello from like");
+    const { reelId } = req.params;
+    const buyer = await Buyer.findById(req.buyer._id);
+
+    if (!buyer) {
+      throw new ApiError(401, "Unauthorized. Buyer not found.");
+    }
+
+    const reel = await Reel.findById(reelId);
+    if (!reel) {
+      throw new ApiError(404, "Reel not found.");
+    }
+
+    const alreadyLiked = buyer.likedReels?.some(
+      (item) => item.reel.toString() === reelId
+    );
+
+    if (!alreadyLiked) {
+      // Ensure it's a number before incrementing
+      console.log("Before increment:", reel.likes); // Debug
+      reel.likes = typeof reel.likes === "number" ? reel.likes + 1 : 1;
+      console.log("After increment:", reel.likes); // Debug      await reel.save();
+      console.log("hello from like");
+      buyer.likedReels = buyer.likedReels || [];
+      buyer.likedReels.push({ reel: reelId });
+
+      await reel.save();
+      await buyer.save();
+    }
+
+    return res.status(200).json(new ApiResponse(null, "❤️ Liked"));
+  } catch (error) {
+    next(error);
+  }
+});
+// UNLIKE a reel
+router.delete("/reels/like/:reelId", getBuyer, async (req, res, next) => {
+  try {
+    const { reelId } = req.params;
+    const buyer = await Buyer.findById(req.buyer._id);
+
+    if (!buyer) {
+      throw new ApiError(401, "Unauthorized. Buyer not found.");
+    }
+
+    const reel = await Reel.findById(reelId);
+    if (!reel) {
+      throw new ApiError(404, "Reel not found.");
+    }
+
+    const likedIndex = buyer.likedReels?.findIndex(
+      (item) => item.reel.toString() === reelId
+    );
+
+    if (likedIndex !== -1) {
+      reel.likes -= 1;
+      console.log("hello from unlike");
+      if (reel.likes < 0) reel.likes = 0; // Ensure likes don't go negative
+      buyer.likedReels.splice(likedIndex, 1);
+
+      await reel.save();
+      await buyer.save();
+    }
+
+    return res.status(200).json(new ApiResponse(null, "💔 Unliked"));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/reels/admin", async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 5;
+    const skip = (page - 1) * limit;
+
+    const total = await Reel.countDocuments();
+    const reels = await Reel.find({})
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("uploadedBy", "brandName");
+
+    const reelsWithProductInfo = await Promise.all(
+      reels.map(async (reel) => {
+        let productName = null;
+        try {
+          const product = await Product.findById(reel.caption);
+          productName = product ? product.name : null;
+        } catch {
+          productName = null;
+        }
+
+        return {
+          ...reel.toObject(),
+          productName,
+        };
+      })
+    );
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse({ data: reelsWithProductInfo, total }, "Reels fetched")
+      );
+  } catch (err) {
+    next(err);
   }
 });
 

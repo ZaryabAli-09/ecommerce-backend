@@ -142,6 +142,16 @@ const buyerSchema = new mongoose.Schema(
         },
       },
     ],
+    likedReels: [
+      {
+        reel: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Reel",
+          required: true,
+        },
+        _id: false, // <-- prevent Mongoose from assigning _id to each subdoc if not needed
+      },
+    ],
   },
   { timestamps: true }
 );
