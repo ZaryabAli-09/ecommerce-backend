@@ -36,9 +36,9 @@ const origins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:5175",
-  "https://sellerwearlypk.netlify.app",
-  "https://adminwearlypk.netlify.app",
-  "https://wearlypk.netlify.app",
+  "https://sellersmartstyler.netlify.app",
+  "https://adminsmartstyler.netlify.app",
+  "https://smartstyler.netlify.app",
 ];
 
 // Built-in Middlewares
