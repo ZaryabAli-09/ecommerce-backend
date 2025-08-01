@@ -53,6 +53,7 @@ router.get("/search", searchProducts);
 
 router.get("/store-products/:storeId", getStoreProducts);
 
+// post reel
 router.post(
   "/reels/upload",
   upload.single("video"),
@@ -113,8 +114,43 @@ router.post(
     }
   }
 );
-// controllers/getReelsController.js
 
+// not refactored
+router.delete("/reels/:reelId", verifySeller, async (req, res, next) => {
+  try {
+    const { reelId } = req.params;
+
+    const reel = await Reel.findById(reelId);
+    if (!reel) throw new ApiError(404, "Reel not found.");
+
+    // Only the seller who uploaded it can delete it
+    if (reel.uploadedBy.toString() !== req.seller._id.toString()) {
+      throw new ApiError(
+        403,
+        "You can't delete this reel. Unauthorized action."
+      );
+    }
+
+    // Extract public_id from Cloudinary URL
+    const publicId = reel.videoUrl.split("/").pop().split(".")[0];
+
+    // Correct Cloudinary path: folderName/publicId
+    const fullPublicId = `reels/${publicId}`;
+    // Delete from Cloudinary
+    const deleteFromCloud = await cloudinary.uploader.destroy(fullPublicId, {
+      resource_type: "video",
+    });
+
+    // Delete from DB
+    await reel.deleteOne();
+
+    res.status(200).json(new ApiResponse(null, "🗑️ Reel deleted successfully"));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// get reels for feed
 router.get("/reels/get", async (req, res, next) => {
   try {
     const reels = await Reel.find()
@@ -137,6 +173,7 @@ router.get("/reels/get", async (req, res, next) => {
   }
 });
 
+// get liked reels for users
 router.get("/reels/liked", getBuyer, async (req, res, next) => {
   try {
     const buyer = await Buyer.findById(req.buyer._id).populate(
@@ -147,7 +184,18 @@ router.get("/reels/liked", getBuyer, async (req, res, next) => {
       throw new ApiError(401, "Unauthorized. Buyer not found.");
     }
 
-    const likedReels = buyer.likedReels.map((item) => item.reel);
+    // Filter out only existing reels (non-null after population)
+    const validLikedReels = buyer.likedReels.filter(
+      (item) => item.reel !== null
+    );
+
+    // Remove invalid liked reels from DB
+    if (validLikedReels.length !== buyer.likedReels.length) {
+      buyer.likedReels = validLikedReels;
+      await buyer.save();
+    }
+
+    const likedReels = validLikedReels.map((item) => item.reel);
 
     return res
       .status(200)
@@ -192,6 +240,7 @@ router.post("/reels/like/:reelId", getBuyer, async (req, res, next) => {
     next(error);
   }
 });
+
 // UNLIKE a reel
 router.delete("/reels/like/:reelId", getBuyer, async (req, res, next) => {
   try {
@@ -226,6 +275,7 @@ router.delete("/reels/like/:reelId", getBuyer, async (req, res, next) => {
   }
 });
 
+// get reels for admins
 router.get("/reels/admin", async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
