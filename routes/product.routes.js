@@ -149,26 +149,31 @@ router.delete("/reels/:reelId", verifySeller, async (req, res, next) => {
     next(err);
   }
 });
-// GET /reels/get - Personalized or random reels
+// GET /reels/get - Personalized or random reels with pagination
 router.get("/reels/get", async (req, res, next) => {
   try {
-    const { buyerId } = req.query; // Get from query string
-    // Fetch all reels initially
+    const { buyerId, page = 1, limit = 5 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
     let allReels = await Reel.find().populate("uploadedBy", "brandName");
 
     if (!allReels || allReels.length === 0) {
       throw new ApiError(404, "No reels found");
     }
 
-    // Case 1: No buyerId → return random shuffled reels
+    let finalFeed = [];
+
     if (!buyerId) {
-      const shuffled = allReels.sort(() => Math.random() - 0.5); // Simple shuffle
+      // Random reels with pagination
+      const shuffled = allReels.sort(() => Math.random() - 0.5);
+      finalFeed = shuffled.slice(skip, skip + parseInt(limit));
+
       return res
         .status(200)
-        .json(new ApiResponse(shuffled, "🎲 Random reels fetched"));
+        .json(new ApiResponse(finalFeed, "🎲 Random reels fetched"));
     }
 
-    // Case 2: buyerId present → personalized
+    // Personalized reels
     const buyer = await Buyer.findById(buyerId).populate("likedReels.reel");
     if (!buyer) {
       throw new ApiError(401, "❌ Buyer not found");
@@ -178,27 +183,29 @@ router.get("/reels/get", async (req, res, next) => {
       .map((item) => item.reel)
       .filter((reel) => reel !== null);
 
-    // Get IDs of liked reels
     const likedIds = likedReels.map((r) => r._id.toString());
 
-    // Separate liked and other reels
     const liked = allReels.filter((reel) =>
       likedIds.includes(reel._id.toString())
     );
 
     const other = allReels
       .filter((reel) => !likedIds.includes(reel._id.toString()))
-      .sort((a, b) => b.likes - a.likes); // Sort other reels by most liked
+      .sort((a, b) => b.likes - a.likes);
 
-    const personalizedFeed = [...liked, ...other]; // Liked first, then popular
+    const personalizedFeed = [...liked, ...other];
+
+    // Paginate personalized feed
+    finalFeed = personalizedFeed.slice(skip, skip + parseInt(limit));
 
     return res
       .status(200)
-      .json(new ApiResponse(personalizedFeed, "✅ Personalized reels fetched"));
+      .json(new ApiResponse(finalFeed, "✅ Personalized reels fetched"));
   } catch (error) {
     next(error);
   }
 });
+
 router.get("/seller/reels", verifySeller, async (req, res, next) => {
   try {
     const sellerId = req.seller._id;

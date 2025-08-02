@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import path from "path";
 import { Product } from "../models/product.model.js";
 import { Order } from "../models/order.model.js";
+import Reel from "../models/reel.models.js";
 
 // Get the directory name from the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -331,6 +332,23 @@ const sellerDashboardInformation = async (req, res) => {
       .populate("orderBy", "name email")
       .populate("seller");
 
+    // fetch reels of seller
+    const reels = await Reel.find({ uploadedBy: sellerId });
+    const totalReels = reels.length;
+    const totalReelLikes = reels.reduce((total, reel) => total + reel.likes, 0);
+
+    const topReels = reels
+      .sort((a, b) => b.likes - a.likes)
+      .slice(0, 5)
+      .map((reel) => ({
+        _id: reel._id,
+        videoUrl: reel.videoUrl,
+        caption: reel.caption,
+        likes: reel.likes,
+        uploadedBy: reel.uploadedBy,
+        createdAt: reel.createdAt,
+      }));
+
     // Calculate metrics
     const totalSellerSales = orders.reduce(
       (total, order) => total + order.totalAmount,
@@ -376,6 +394,9 @@ const sellerDashboardInformation = async (req, res) => {
       productDistributionData,
       avgOrderValue:
         totalSellerOrders > 0 ? totalSellerSales / totalSellerOrders : 0,
+      totalReels,
+      totalReelLikes,
+      topReels,
     });
   } catch (error) {
     console.error(error);
