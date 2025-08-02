@@ -337,17 +337,33 @@ const sellerDashboardInformation = async (req, res) => {
     const totalReels = reels.length;
     const totalReelLikes = reels.reduce((total, reel) => total + reel.likes, 0);
 
-    const topReels = reels
-      .sort((a, b) => b.likes - a.likes)
-      .slice(0, 5)
-      .map((reel) => ({
-        _id: reel._id,
-        videoUrl: reel.videoUrl,
-        caption: reel.caption,
-        likes: reel.likes,
-        uploadedBy: reel.uploadedBy,
-        createdAt: reel.createdAt,
-      }));
+    const topReels = reels.sort((a, b) => b.likes - a.likes).slice(0, 5);
+    // / Fetch related products based on reel captions (assumed to be product IDs)
+    const populatedTopReels = await Promise.all(
+      topReels.map(async (reel) => {
+        let productName = "Unknown Product";
+
+        try {
+          const product = await Product.findById(reel.caption); // Caption = productId
+          if (product) productName = product.name;
+        } catch (err) {
+          console.error(
+            `❌ Error fetching product for reel ${reel._id}:`,
+            err.message
+          );
+        }
+
+        return {
+          _id: reel._id,
+          videoUrl: reel.videoUrl,
+          likes: reel.likes,
+          uploadedBy: reel.uploadedBy,
+          createdAt: reel.createdAt,
+          caption: reel.caption,
+          productName, // replaced caption with product name
+        };
+      })
+    );
 
     // Calculate metrics
     const totalSellerSales = orders.reduce(
@@ -396,7 +412,7 @@ const sellerDashboardInformation = async (req, res) => {
         totalSellerOrders > 0 ? totalSellerSales / totalSellerOrders : 0,
       totalReels,
       totalReelLikes,
-      topReels,
+      topReels: populatedTopReels,
     });
   } catch (error) {
     console.error(error);
