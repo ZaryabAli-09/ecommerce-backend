@@ -85,7 +85,7 @@ router.post(
 
       // 3. Check duration from Cloudinary metadata
       const duration = result.duration;
-      if (duration > 30) {
+      if (duration > 50) {
         // Delete from Cloudinary
         await cloudinary.uploader.destroy(result.public_id, {
           resource_type: "video",
@@ -149,16 +149,66 @@ router.delete("/reels/:reelId", verifySeller, async (req, res, next) => {
     next(err);
   }
 });
-
-// get reels for feed
+// GET /reels/get - Personalized or random reels
 router.get("/reels/get", async (req, res, next) => {
   try {
-    const reels = await Reel.find()
+    const { buyerId } = req.query; // Get from query string
+    // Fetch all reels initially
+    let allReels = await Reel.find().populate("uploadedBy", "brandName");
+
+    if (!allReels || allReels.length === 0) {
+      throw new ApiError(404, "No reels found");
+    }
+
+    // Case 1: No buyerId → return random shuffled reels
+    if (!buyerId) {
+      const shuffled = allReels.sort(() => Math.random() - 0.5); // Simple shuffle
+      return res
+        .status(200)
+        .json(new ApiResponse(shuffled, "🎲 Random reels fetched"));
+    }
+
+    // Case 2: buyerId present → personalized
+    const buyer = await Buyer.findById(buyerId).populate("likedReels.reel");
+    if (!buyer) {
+      throw new ApiError(401, "❌ Buyer not found");
+    }
+
+    const likedReels = buyer.likedReels
+      .map((item) => item.reel)
+      .filter((reel) => reel !== null);
+
+    // Get IDs of liked reels
+    const likedIds = likedReels.map((r) => r._id.toString());
+
+    // Separate liked and other reels
+    const liked = allReels.filter((reel) =>
+      likedIds.includes(reel._id.toString())
+    );
+
+    const other = allReels
+      .filter((reel) => !likedIds.includes(reel._id.toString()))
+      .sort((a, b) => b.likes - a.likes); // Sort other reels by most liked
+
+    const personalizedFeed = [...liked, ...other]; // Liked first, then popular
+
+    return res
+      .status(200)
+      .json(new ApiResponse(personalizedFeed, "✅ Personalized reels fetched"));
+  } catch (error) {
+    next(error);
+  }
+});
+router.get("/seller/reels", verifySeller, async (req, res, next) => {
+  try {
+    const sellerId = req.seller._id;
+    // Fetch all reels uploaded by the seller
+    const reels = await Reel.find({ uploadedBy: sellerId })
       .populate("uploadedBy", "brandName")
       .sort({ createdAt: -1 }); // Sort by createdAt in descending order // Latest first
 
     if (!reels || reels.length === 0) {
-      throw new ApiError(404, "No reels found");
+      throw new ApiError(404, "No reels found for this seller");
     }
     // Ensure reels are populated with uploadedBy brandName
     reels.forEach((reel) => {
@@ -172,7 +222,6 @@ router.get("/reels/get", async (req, res, next) => {
     next(error);
   }
 });
-
 // get liked reels for users
 router.get("/reels/liked", getBuyer, async (req, res, next) => {
   try {
