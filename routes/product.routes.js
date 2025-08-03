@@ -152,55 +152,71 @@ router.delete("/reels/:reelId", verifySeller, async (req, res, next) => {
 // GET /reels/get - Personalized or random reels with pagination
 router.get("/reels/get", async (req, res, next) => {
   try {
-    const { buyerId, page = 1, limit = 5 } = req.query;
+    const { buyerId } = req.query;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    let allReels = await Reel.find().populate("uploadedBy", "brandName");
-
-    if (!allReels || allReels.length === 0) {
-      throw new ApiError(404, "No reels found");
-    }
-
-    let finalFeed = [];
-
+    // Optimized database queries
     if (!buyerId) {
-      // Random reels with pagination
-      const shuffled = allReels.sort(() => Math.random() - 0.5);
-      finalFeed = shuffled.slice(skip, skip + parseInt(limit));
+      // Get all random reels at once
+      const randomReels = await Reel.aggregate([
+        {
+          $lookup: {
+            from: "sellers",
+            localField: "uploadedBy",
+            foreignField: "_id",
+            as: "uploadedBy",
+            pipeline: [{ $project: { brandName: 1 } }],
+          },
+        },
+        { $unwind: { path: "$uploadedBy", preserveNullAndEmptyArrays: true } },
+        { $sample: { size: 100 } }, // Limit maximum number of random reels
+      ]);
+
+      if (!randomReels.length) {
+        return res.status(200).json(new ApiResponse([], "No reels found"));
+      }
 
       return res
         .status(200)
-        .json(new ApiResponse(finalFeed, "🎲 Random reels fetched"));
+        .json(new ApiResponse(randomReels, "🎲 Random reels fetched"));
     }
 
     // Personalized reels
-    const buyer = await Buyer.findById(buyerId).populate("likedReels.reel");
+    const buyer = await Buyer.findById(buyerId);
     if (!buyer) {
       throw new ApiError(401, "❌ Buyer not found");
     }
 
-    const likedReels = buyer.likedReels
-      .map((item) => item.reel)
-      .filter((reel) => reel !== null);
+    // Get liked reel IDs
+    const likedIds = buyer.likedReels
+      .filter((item) => item.reel)
+      .map((item) => item.reel.toString());
 
-    const likedIds = likedReels.map((r) => r._id.toString());
-
-    const liked = allReels.filter((reel) =>
-      likedIds.includes(reel._id.toString())
-    );
-
-    const other = allReels
-      .filter((reel) => !likedIds.includes(reel._id.toString()))
-      .sort((a, b) => b.likes - a.likes);
-
-    const personalizedFeed = [...liked, ...other];
-
-    // Paginate personalized feed
-    finalFeed = personalizedFeed.slice(skip, skip + parseInt(limit));
+    // Get all personalized reels at once
+    const personalizedReels = await Reel.aggregate([
+      {
+        $lookup: {
+          from: "sellers",
+          localField: "uploadedBy",
+          foreignField: "_id",
+          as: "uploadedBy",
+          pipeline: [{ $project: { brandName: 1 } }],
+        },
+      },
+      { $unwind: { path: "$uploadedBy", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          isLiked: { $in: ["$_id", likedIds] },
+        },
+      },
+      { $sort: { isLiked: -1, likes: -1 } },
+      { $limit: 100 }, // Limit maximum number of reels
+    ]);
 
     return res
       .status(200)
-      .json(new ApiResponse(finalFeed, "✅ Personalized reels fetched"));
+      .json(
+        new ApiResponse(personalizedReels, "✅ Personalized reels fetched")
+      );
   } catch (error) {
     next(error);
   }
