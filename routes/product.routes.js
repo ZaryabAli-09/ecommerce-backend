@@ -14,6 +14,7 @@ import {
   getProductsByCategory,
   searchProducts,
   getSingleProductForSeller,
+  getSimilarProducts,
 } from "../controllers/product.controllers.js";
 import { uploadFileUsingMulter } from "../middlwares/multerMiddleware.js";
 import getBuyer from "../middlwares/getBuyer.js";
@@ -41,9 +42,12 @@ router.get("/seller-products/:sellerId", getSellerProducts);
 router.delete("/delete/:productId", verifySeller, deleteProduct);
 router.delete("/deleteImg/:publicId", verifySeller, deleteProductImage);
 // buyer routes
-router.get("/all", getAllProducts);
+router.get("/all", getBuyer, getAllProducts);
 router.get("/all-filter-pagination", getAllProductsWithFilteringAndPagination);
 router.get("/single/:productId", getBuyer, getSingleProduct);
+
+// *** NEW SIMILAR PRODUCTS ROUTE ***
+router.get("/similar/:productId", getSimilarProducts);
 
 // i need to change my seller frontend code related to this route
 router.get("/single/seller/:productId", getSingleProductForSeller);

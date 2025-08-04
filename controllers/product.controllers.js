@@ -156,6 +156,28 @@ async function createProduct(req, res, next) {
         .map(({ path }) => fs.promises.unlink(path))
     );
 
+    // ijaz code
+
+    // ------------------------------------------------------------
+
+    await fetch("http://127.0.0.1:5000/generate-similar-products", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        productId: newProduct._id.toString(),
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("✅ Success:", data);
+      })
+      .catch((error) => {
+        console.error("❌ Error:", error);
+      });
+
+    // ------------------------------------------------------------
     // sending success response after product successfully created
     return res
       .status(201)
@@ -393,17 +415,135 @@ async function adminUpdateProduct(req, res, next) {
 async function getAllProducts(req, res, next) {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = 15; // Always load 15 products per page
-    const skip = (page - 1) * limit; // Calculate skip based on page
-    const products = await Product.find(
-      {},
-      { name: 1, numReviews: 1, rating: 1, sold: 1, variants: 1 }
-    )
-      .populate("seller", "brandName")
-      .skip(skip)
-      .limit(limit);
+    const limit = 15;
+    const skip = (page - 1) * limit;
 
-    const totalProducts = await Product.countDocuments();
+    let products;
+    let totalProducts = await Product.countDocuments();
+
+    // Check if user is logged in (has req.buyer._id)
+    // console.log(req.buyer._id);
+    if (req.buyer?._id) {
+      // Get user's browsing history with product categories
+      const user = await Buyer.findById(req.buyer._id).populate({
+        path: "browsingHistory",
+        select: "category",
+        options: { limit: 100 }, // Limit to recent 100 browsing history items
+      });
+
+      if (user?.browsingHistory?.length > 0) {
+        // Get top 4 most frequent product categories from browsing history
+        const categoryCounts = {};
+        user.browsingHistory.forEach((product) => {
+          if (product.category) {
+            const mainCategory = product.category.split(">")[0]?.trim();
+            if (mainCategory) {
+              categoryCounts[mainCategory] =
+                (categoryCounts[mainCategory] || 0) + 1;
+            }
+          }
+        });
+
+        // Sort categories by frequency and get top 4
+        const topCategories = Object.entries(categoryCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 4)
+          .map(([category]) => new RegExp(category, "i"));
+
+        if (topCategories.length > 0) {
+          // Fetch products with priority to top categories
+          products = await Product.aggregate([
+            {
+              $addFields: {
+                categoryMatch: {
+                  $cond: {
+                    if: {
+                      $regexMatch: {
+                        input: "$category",
+                        regex: topCategories[0],
+                      },
+                    },
+                    then: 1,
+                    else: {
+                      $cond: {
+                        if: topCategories[1] && {
+                          $regexMatch: {
+                            input: "$category",
+                            regex: topCategories[1],
+                          },
+                        },
+                        then: 2,
+                        else: {
+                          $cond: {
+                            if: topCategories[2] && {
+                              $regexMatch: {
+                                input: "$category",
+                                regex: topCategories[2],
+                              },
+                            },
+                            then: 3,
+                            else: {
+                              $cond: {
+                                if: topCategories[3] && {
+                                  $regexMatch: {
+                                    input: "$category",
+                                    regex: topCategories[3],
+                                  },
+                                },
+                                then: 4,
+                                else: 5,
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            { $sort: { categoryMatch: 1, createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                name: 1,
+                numReviews: 1,
+                rating: 1,
+                sold: 1,
+                variants: 1,
+                category: 1,
+              },
+            },
+            {
+              $lookup: {
+                from: "buyers",
+                localField: "seller",
+                foreignField: "_id",
+                as: "seller",
+                pipeline: [{ $project: { brandName: 1 } }],
+              },
+            },
+            { $unwind: "$seller" },
+          ]);
+        }
+      }
+    }
+
+    // If no personalized products found (either not logged in or no browsing history)
+    if (!products) {
+      // For non-logged-in users or when no browsing history exists, shuffle products
+      const count = await Product.countDocuments();
+      const randomSkip = Math.floor(Math.random() * Math.max(0, count - limit));
+
+      products = await Product.find(
+        {},
+        { name: 1, numReviews: 1, rating: 1, sold: 1, variants: 1 }
+      )
+        .populate("seller", "brandName")
+        .skip(randomSkip)
+        .limit(limit);
+    }
 
     res.status(200).json(
       new ApiResponse(
@@ -754,7 +894,46 @@ async function getStoreProducts(req, res, next) {
     next(error);
   }
 }
+async function getSimilarProducts(req, res, next) {
+  try {
+    const { productId } = req.params;
 
+    // Directly use productId as string to match string _id
+    const db = mongoose.connection;
+    const similarProductDoc = await db
+      .collection("similar_products")
+      .findOne({ _id: productId });
+
+    if (!similarProductDoc) {
+      return res
+        .status(404)
+        .json(new ApiResponse([], "No similar products found."));
+    }
+
+    // Convert similar ids to ObjectId for querying products
+    const similarIds = similarProductDoc.similar
+      .slice(0, 4)
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    const similarProducts = await Product.find(
+      { _id: { $in: similarIds } },
+      {
+        name: 1,
+        numReviews: 1,
+        rating: 1,
+        variants: { $slice: 1 },
+      }
+    ).lean();
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(similarProducts, "Product retrieved successfully.")
+      );
+  } catch (error) {
+    next(error);
+  }
+}
 export {
   createProduct,
   updateProduct,
@@ -770,4 +949,5 @@ export {
   searchProducts,
   getSingleProductForSeller,
   getStoreProducts,
+  getSimilarProducts,
 };
