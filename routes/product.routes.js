@@ -42,7 +42,7 @@ router.get("/seller-products/:sellerId", getSellerProducts);
 router.delete("/delete/:productId", verifySeller, deleteProduct);
 router.delete("/deleteImg/:publicId", verifySeller, deleteProductImage);
 // buyer routes
-router.get("/all", getBuyer, getAllProducts);
+router.get("/all", getAllProducts);
 router.get("/all-filter-pagination", getAllProductsWithFilteringAndPagination);
 router.get("/single/:productId", getBuyer, getSingleProduct);
 
