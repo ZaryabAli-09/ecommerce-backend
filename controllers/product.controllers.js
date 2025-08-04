@@ -395,41 +395,25 @@ async function getAllProducts(req, res, next) {
     const page = parseInt(req.query.page) || 1;
     const limit = 15;
     const skip = (page - 1) * limit;
+
     const totalProducts = await Product.countDocuments();
 
-    // Get a random sample of products
-    const products = await Product.aggregate([
-      { $sample: { size: limit } },
-      {
-        $project: {
-          name: 1,
-          numReviews: 1,
-          rating: 1,
-          sold: 1,
-          variants: 1,
-        },
-      },
-      {
-        $lookup: {
-          from: "buyers",
-          localField: "seller",
-          foreignField: "_id",
-          as: "seller",
-          pipeline: [{ $project: { brandName: 1 } }],
-        },
-      },
-      { $unwind: "$seller" },
-      { $skip: skip },
-      { $limit: limit },
-    ]);
+    const products = await Product.find(
+      {},
+      { name: 1, numReviews: 1, rating: 1, sold: 1, variants: 1 }
+    )
+      .sort({ _id: -1 }) // Sort by _id or some consistent field
+      .populate("seller", "brandName")
+      .skip(skip)
+      .limit(limit);
 
     res.status(200).json(
       new ApiResponse(
         {
           products,
           currentPage: page,
-          hasMore: skip + limit < totalProducts,
           totalProducts,
+          hasMore: skip + limit < totalProducts,
         },
         "Products retrieved successfully."
       )
